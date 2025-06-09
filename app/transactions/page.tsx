@@ -230,7 +230,7 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-3 h-fit">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="income">Income</TabsTrigger>
                 <TabsTrigger value="expense">Expenses</TabsTrigger>

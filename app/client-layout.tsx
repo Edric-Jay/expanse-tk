@@ -66,7 +66,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
         {/* Page Content - Scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto p-4 lg:p-6 max-w-7xl">{children}</div>
+          <div className=" mx-auto lg:mx-8 p-4 lg:p-6 max-w-[calc(100vw-256px)] ">{children}</div>
         </main>
 
         {/* PWA Install Prompt */}
