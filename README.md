@@ -1,5 +1,5 @@
-# Firebase Studio
+# Expense Tracker App
 
-This is a NextJS starter in Firebase Studio.
+Your project is live at:
 
-To get started, take a look at src/app/page.tsx.
+**expanse-tk.vercel.app**
