@@ -85,7 +85,7 @@ export default function NewTransactionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-2 md:p-4">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -110,7 +110,7 @@ export default function NewTransactionPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Transaction Type */}
               <Tabs value={transactionType} onValueChange={setTransactionType}>
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-2 h-fit">
                   <TabsTrigger value="expense" className="flex items-center gap-2">
                     <Minus className="w-4 h-4" />
                     Expense
