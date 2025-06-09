@@ -94,3 +94,151 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .transaction-item {
+    padding: 12px;
+  }
+
+  .transaction-amount {
+    font-size: 14px;
+  }
+
+  .tab-trigger {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Better touch targets */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Responsive text */
+  .responsive-text {
+    font-size: clamp(14px, 4vw, 16px);
+  }
+}
+
+/* Fix for overlapping tabs */
+.tabs-list {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabs-list::-webkit-scrollbar {
+  display: none;
+}
+
+/* Better mobile spacing */
+@media (max-width: 768px) {
+  .mobile-padding {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .mobile-gap {
+    gap: 12px;
+  }
+}
+
+/* Enhanced mobile optimizations */
+@media (max-width: 640px) {
+  /* Transaction items */
+  .transaction-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  /* Tab improvements */
+  [data-radix-collection-item] {
+    min-width: 0;
+    flex: 1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Better button spacing */
+  .button-group {
+    gap: 8px;
+  }
+
+  /* Responsive cards */
+  .card-content {
+    padding: 16px;
+  }
+
+  /* Better text sizing */
+  .mobile-text {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  /* Prevent layout shifts */
+  .flex-container {
+    min-height: 0;
+  }
+
+  /* Better badge sizing */
+  .badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
+/* Tab list specific fixes */
+[role="tablist"] {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+[role="tablist"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure tabs don't shrink too much */
+[role="tab"] {
+  flex-shrink: 0;
+  min-width: fit-content;
+  padding: 8px 12px;
+}
+
+/* Better mobile touch targets */
+@media (max-width: 768px) {
+  button,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better spacing for mobile */
+  .mobile-spacing {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  /* Responsive grid improvements */
+  .responsive-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* Better form elements */
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}

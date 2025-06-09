@@ -179,6 +179,9 @@ export default function AnalyticsPage() {
   }
 
   const currentMonth = monthlyTrends[monthlyTrends.length - 1] || { income: 0, expenses: 0, savings: 0 }
+  const currentSavingsRate =
+    currentMonth.income > 0 ? Math.max(0, (currentMonth.savings / currentMonth.income) * 100) : 0
+
   const previousMonth = monthlyTrends[monthlyTrends.length - 2] || { income: 0, expenses: 0, savings: 0 }
 
   const incomeChange =
@@ -275,9 +278,7 @@ export default function AnalyticsPage() {
               <PieChartIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {currentMonth.income > 0 ? ((currentMonth.savings / currentMonth.income) * 100).toFixed(1) : "0"}%
-              </div>
+              <div className="text-2xl font-bold">{currentSavingsRate.toFixed(1)}%</div>
               <div className="text-xs text-gray-600">Target: 20%</div>
             </CardContent>
           </Card>
@@ -285,11 +286,19 @@ export default function AnalyticsPage() {
 
         {/* Charts */}
         <Tabs defaultValue="trends" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="trends">Trends</TabsTrigger>
-            <TabsTrigger value="categories">Categories</TabsTrigger>
-            <TabsTrigger value="daily">Daily Spending</TabsTrigger>
-            <TabsTrigger value="savings">Savings Rate</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
+            <TabsTrigger value="trends" className="text-xs px-2 py-2">
+              Trends
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="text-xs px-2 py-2">
+              Categories
+            </TabsTrigger>
+            <TabsTrigger value="daily" className="text-xs px-2 py-2">
+              Daily
+            </TabsTrigger>
+            <TabsTrigger value="savings" className="text-xs px-2 py-2">
+              Savings
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="trends">

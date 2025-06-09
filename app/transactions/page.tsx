@@ -249,11 +249,11 @@ export default function TransactionsPage() {
                     filteredTransactions.map((transaction: any) => (
                       <div
                         key={transaction.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-gray-50 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border hover:bg-gray-50 transition-colors gap-3"
                       >
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div
-                            className={`p-2 rounded-full ${transaction.type === "income" ? "bg-green-100" : "bg-red-100"}`}
+                            className={`p-2 rounded-full flex-shrink-0 ${transaction.type === "income" ? "bg-green-100" : "bg-red-100"}`}
                           >
                             {transaction.type === "income" ? (
                               <ArrowUpRight className="w-4 h-4 text-green-600" />
@@ -261,30 +261,31 @@ export default function TransactionsPage() {
                               <ArrowDownRight className="w-4 h-4 text-red-600" />
                             )}
                           </div>
-                          <div>
-                            <p className="font-medium">{transaction.description}</p>
-                            <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm sm:text-base">{transaction.description}</p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
                               <Badge variant="secondary" className="text-xs">
                                 {transaction.categories?.name || "Uncategorized"}
                               </Badge>
-                              <span className="text-sm text-gray-500">•</span>
-                              <span className="text-sm text-gray-500">{transaction.wallets?.name || "Unknown"}</span>
+                              <span className="text-xs text-gray-500">•</span>
+                              <span className="text-xs text-gray-500">{transaction.wallets?.name || "Unknown"}</span>
+                              <span className="text-xs text-gray-500">•</span>
+                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {transaction.date}
+                              </span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-between sm:justify-end gap-3">
                           <div className="text-right">
                             <p
                               className={`font-semibold text-lg ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}
                             >
                               {transaction.type === "income" ? "+" : ""}₱{Math.abs(transaction.amount).toLocaleString()}
                             </p>
-                            <p className="text-sm text-gray-500 flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {transaction.date}
-                            </p>
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex gap-2">
                             <Button
                               variant="ghost"
                               size="icon"
