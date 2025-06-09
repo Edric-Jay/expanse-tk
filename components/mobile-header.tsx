@@ -38,7 +38,7 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   }
 
   const canGoBack = () => {
-    return pathname !== "/" && pathname !== "/auth"
+    return pathname === "/transactions/new"
   }
 
   return (

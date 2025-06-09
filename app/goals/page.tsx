@@ -140,7 +140,7 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-2 md:p-4">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -152,15 +152,15 @@ export default function GoalsPage() {
 
         {/* Goals Tab */}
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center md:flex-row flex-col">
             <div>
               <h2 className="text-xl font-semibold">Your Financial Goals</h2>
               <p className="text-gray-600">Track progress towards your financial objectives</p>
             </div>
             <Dialog open={isGoalDialogOpen} onOpenChange={setIsGoalDialogOpen}>
-              <DialogTrigger asChild>
+              <DialogTrigger asChild className=" self-end">
                 <Button>
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4" />
                   Add Goal
                 </Button>
               </DialogTrigger>
