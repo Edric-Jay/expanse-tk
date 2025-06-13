@@ -19,6 +19,12 @@ export function useCategories() {
 
   const fetchCategories = async () => {
     try {
+      if (!supabase || !user) {
+        setLoading(false)
+        setCategories([])
+        return
+      }
+
       const { data, error } = await supabase
         .from("categories")
         .select("*")
@@ -40,6 +46,15 @@ export function useCategories() {
 
   const createCategory = async (categoryData: Omit<Category, "id" | "user_id" | "created_at" | "updated_at">) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase
         .from("categories")
         .insert([{ ...categoryData, user_id: user?.id }])
@@ -66,6 +81,15 @@ export function useCategories() {
 
   const updateCategory = async (id: string, updates: Partial<Category>) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase
         .from("categories")
         .update(updates)
@@ -94,6 +118,15 @@ export function useCategories() {
 
   const deleteCategory = async (id: string) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { error } = await supabase.from("categories").delete().eq("id", id).eq("user_id", user?.id)
 
       if (error) throw error

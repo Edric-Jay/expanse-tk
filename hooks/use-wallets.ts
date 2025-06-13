@@ -20,6 +20,12 @@ export function useWallets() {
   const fetchWallets = async () => {
     try {
       setLoading(true)
+
+      if (!supabase || !user) {
+        setWallets([])
+        return
+      }
+
       const { data, error } = await supabase
         .from("wallets")
         .select("*")
@@ -43,6 +49,15 @@ export function useWallets() {
 
   const createWallet = async (walletData: any) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase.from("wallets").insert([
         {
           user_id: user?.id,
@@ -71,6 +86,15 @@ export function useWallets() {
 
   const updateWallet = async (id: string, walletData: any) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase
         .from("wallets")
         .update({
@@ -101,6 +125,15 @@ export function useWallets() {
 
   const deleteWallet = async (id: string) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { error } = await supabase.from("wallets").delete().eq("id", id).eq("user_id", user?.id)
 
       if (error) throw error
@@ -122,6 +155,15 @@ export function useWallets() {
 
   const transferFunds = async (fromWalletId: string, toWalletId: string, amount: number) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       // Get the source and destination wallets
       const sourceWallet = wallets.find((w) => w.id === fromWalletId)
       const destWallet = wallets.find((w) => w.id === toWalletId)

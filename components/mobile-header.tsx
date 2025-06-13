@@ -24,6 +24,8 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
         return "Categories"
       case "/wallets":
         return "Wallets"
+      case "/budgets":
+        return "Budgets"
       case "/goals":
         return "Goals"
       case "/analytics":

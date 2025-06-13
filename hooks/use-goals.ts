@@ -19,6 +19,12 @@ export function useGoals() {
 
   const fetchGoals = async () => {
     try {
+      if (!supabase || !user) {
+        setGoals([])
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from("goals")
         .select("*")
@@ -40,6 +46,15 @@ export function useGoals() {
 
   const createGoal = async (goalData: Omit<Goal, "id" | "user_id" | "created_at" | "updated_at">) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase
         .from("goals")
         .insert([{ ...goalData, user_id: user?.id }])
@@ -66,6 +81,15 @@ export function useGoals() {
 
   const updateGoal = async (id: string, updates: Partial<Goal>) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase
         .from("goals")
         .update(updates)
@@ -94,6 +118,15 @@ export function useGoals() {
 
   const deleteGoal = async (id: string) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { error } = await supabase.from("goals").delete().eq("id", id).eq("user_id", user?.id)
 
       if (error) throw error

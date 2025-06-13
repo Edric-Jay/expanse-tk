@@ -19,13 +19,19 @@ export function useTransactions() {
 
   const fetchTransactions = async () => {
     try {
+      if (!supabase || !user) {
+        setTransactions([])
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from("transactions")
         .select(`
-          *,
-          wallets(name),
-          categories(name, color)
-        `)
+        *,
+        wallets(name),
+        categories(name, color)
+      `)
         .eq("user_id", user?.id)
         .order("date", { ascending: false })
 
@@ -46,6 +52,15 @@ export function useTransactions() {
     transactionData: Omit<Transaction, "id" | "user_id" | "created_at" | "updated_at">,
   ) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase
         .from("transactions")
         .insert([{ ...transactionData, user_id: user?.id }])
@@ -84,6 +99,15 @@ export function useTransactions() {
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       const { data, error } = await supabase
         .from("transactions")
         .update(updates)
@@ -116,6 +140,15 @@ export function useTransactions() {
 
   const deleteTransaction = async (id: string) => {
     try {
+      if (!supabase || !user) {
+        toast({
+          title: "Error",
+          description: "Authentication required. Please log in.",
+          variant: "destructive",
+        })
+        throw new Error("Authentication required")
+      }
+
       // Get transaction details first
       const transaction = transactions.find((t) => t.id === id)
       if (!transaction) throw new Error("Transaction not found")

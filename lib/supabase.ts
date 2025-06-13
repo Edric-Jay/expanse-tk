@@ -1,9 +1,23 @@
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Check if the environment variables are defined
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing. Please check your environment variables.")
+}
+
+export const supabase =
+  typeof window !== "undefined"
+    ? createClient(supabaseUrl || "", supabaseAnonKey || "", {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
+    : null
 
 // Database types
 export interface User {
@@ -74,7 +88,7 @@ export interface Budget {
   category_id: string
   name: string
   limit_amount: number
-  period: "weekly" | "monthly" | "quarterly" | "yearly"
+  period: "weekly" | "monthly" | "quarterly" | "yearly" | "custom"
   start_date: string
   end_date: string
   created_at: string
