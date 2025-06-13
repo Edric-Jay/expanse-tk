@@ -88,7 +88,7 @@ export interface Budget {
   category_id: string
   name: string
   limit_amount: number
-  period: "weekly" | "monthly" | "quarterly" | "yearly" | "custom"
+  period: "weekly" | "custom" | "monthly" | "quarterly" | "yearly" | string
   start_date: string
   end_date: string
   created_at: string

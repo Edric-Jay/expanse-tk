@@ -23,16 +23,23 @@ export function useBudgets() {
   const calculateBudgetSpending = (budgets: Budget[], transactions: Transaction[]): BudgetWithSpending[] => {
     return budgets.map((budget) => {
       const startDate = new Date(budget.start_date)
+      startDate.setHours(0, 0, 0, 0) // Set to beginning of day
+
       const endDate = new Date(budget.end_date)
+      endDate.setHours(23, 59, 59, 999) // Set to end of day
 
       // Filter transactions for this budget's category and date range
-      const relevantTransactions = transactions.filter(
-        (transaction) =>
+      const relevantTransactions = transactions.filter((transaction) => {
+        const txDate = new Date(transaction.date)
+        txDate.setHours(0, 0, 0, 0) // Normalize transaction date
+
+        return (
           transaction.category_id === budget.category_id &&
           transaction.type === "expense" &&
-          new Date(transaction.date) >= startDate &&
-          new Date(transaction.date) <= endDate,
-      )
+          txDate >= startDate &&
+          txDate <= endDate
+        )
+      })
 
       // Calculate total spent - ensure we're using positive values for expenses
       const spent = relevantTransactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0)
@@ -94,7 +101,7 @@ export function useBudgets() {
         throw new Error(transactionsError.message)
       }
 
-      const budgetsWithSpending = calculateBudgetSpending(budgetsData, transactionsData || [])
+      const budgetsWithSpending = calculateBudgetSpending(budgetsData || [], transactionsData || [])
       setBudgets(budgetsWithSpending)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch budgets")
@@ -178,7 +185,7 @@ export function useBudgets() {
       })
 
       // Refresh budgets
-      fetchBudgets()
+      await fetchBudgets()
       return true
     } catch (err) {
       toast({
