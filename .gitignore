@@ -36,6 +36,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+<<<<<<< Updated upstream
 
 .genkit/*
 .env*
@@ -43,3 +44,6 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+=======
+.env*.local
+>>>>>>> Stashed changes
