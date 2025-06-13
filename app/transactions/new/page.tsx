@@ -89,11 +89,6 @@ export default function NewTransactionPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/transactions">
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-          </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Add Transaction</h1>
             <p className="text-gray-600">Record a new income or expense</p>
@@ -110,7 +105,7 @@ export default function NewTransactionPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Transaction Type */}
               <Tabs value={transactionType} onValueChange={setTransactionType}>
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-2 h-fit">
                   <TabsTrigger value="expense" className="flex items-center gap-2">
                     <Minus className="w-4 h-4" />
                     Expense

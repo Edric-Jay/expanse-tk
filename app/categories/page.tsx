@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useCategories } from "@/hooks/use-categories"
+import { useTransactions } from "@/hooks/use-transactions"
 
 const iconOptions = [
   { name: "Utensils", component: Utensils },
@@ -51,15 +52,52 @@ const colorOptions = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3
 export default function CategoriesPage() {
   const { toast } = useToast()
   const { categories, loading, createCategory, updateCategory, deleteCategory } = useCategories()
+  const { transactions, loading: transactionsLoading } = useTransactions()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [mostUsedCategory, setMostUsedCategory] = useState<string>("None")
   const [newCategory, setNewCategory] = useState({
     name: "",
     type: "expense" as "income" | "expense",
     color: "#3b82f6",
     icon: "Tags",
   })
+
+  useEffect(() => {
+    if (!transactionsLoading && transactions.length > 0 && categories.length > 0) {
+      // Count transactions by category
+      const categoryCounts: Record<string, { count: number; name: string }> = {}
+
+      transactions.forEach((transaction) => {
+        if (transaction.category_id) {
+          if (!categoryCounts[transaction.category_id]) {
+            const category = categories.find((c) => c.id === transaction.category_id)
+            categoryCounts[transaction.category_id] = {
+              count: 0,
+              name: category ? category.name : "Unknown",
+            }
+          }
+          categoryCounts[transaction.category_id].count++
+        }
+      })
+
+      // Find the most used category
+      let maxCount = 0
+      let maxCategoryName = "None"
+
+      Object.values(categoryCounts).forEach(({ count, name }) => {
+        if (count > maxCount) {
+          maxCount = count
+          maxCategoryName = name
+        }
+      })
+
+      setMostUsedCategory(maxCategoryName)
+    } else {
+      setMostUsedCategory("None")
+    }
+  }, [transactions, categories, transactionsLoading])
 
   const handleSaveCategory = async () => {
     if (!newCategory.name) {
@@ -268,9 +306,7 @@ export default function CategoriesPage() {
               <CardTitle className="text-sm font-medium">Most Used</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {categories.length > 0 ? categories[0].name : "None"}
-              </div>
+              <div className="text-2xl font-bold text-blue-600">{mostUsedCategory}</div>
             </CardContent>
           </Card>
         </div>
