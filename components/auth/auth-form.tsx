@@ -68,7 +68,6 @@ export function AuthForm() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-
     try {
       const { error } = await supabase.auth.signUp({
         email: formData.email,
@@ -79,9 +78,7 @@ export function AuthForm() {
           },
         },
       })
-
       if (error) throw error
-
       toast({
         title: "Account created!",
         description: "Please check your email to verify your account.",
