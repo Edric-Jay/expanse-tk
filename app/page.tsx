@@ -1,42 +1,63 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import {
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  Target,
-  Plus,
   ArrowUpRight,
   ArrowDownRight,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Target,
+  Plus,
+  PieChart,
+  BarChart3,
+  DollarSign,
   CreditCard,
-  Banknote,
-  PiggyBank,
 } from "lucide-react"
 import Link from "next/link"
-import { useWallets } from "@/hooks/use-wallets"
 import { useTransactions } from "@/hooks/use-transactions"
+import { useWallets } from "@/hooks/use-wallets"
 import { useGoals } from "@/hooks/use-goals"
+import { useBudgets } from "@/hooks/use-budgets"
+import { useCategories } from "@/hooks/use-categories"
+import { useCurrency } from "@/hooks/use-currency"
+import { useNotifications } from "@/hooks/use-notifications"
 import { useAuth } from "@/components/auth/auth-provider"
 
-export default function Dashboard() {
-  const { user } = useAuth()
-  const { wallets, loading: walletsLoading } = useWallets()
+export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth()
   const { transactions, loading: transactionsLoading } = useTransactions()
+  const { wallets, loading: walletsLoading } = useWallets()
   const { goals, loading: goalsLoading } = useGoals()
-  const [expensesByCategory, setExpensesByCategory] = useState<any[]>([])
+  const { budgets, loading: budgetsLoading } = useBudgets()
+  const { categories, loading: categoriesLoading } = useCategories()
+  const { formatCurrency } = useCurrency()
+  const { requestNotificationPermission } = useNotifications()
 
-  const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0)
+  const [currentMonth] = useState(new Date().getMonth())
+  const [currentYear] = useState(new Date().getFullYear())
 
-  // Calculate monthly income and expenses from transactions
-  const currentMonth = new Date().getMonth()
-  const currentYear = new Date().getFullYear()
+  // Initialize notifications on dashboard load
+  useEffect(() => {
+    requestNotificationPermission()
+  }, [])
 
+  // Show loading if auth is still loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Calculate monthly data
   const monthlyTransactions = transactions.filter((transaction) => {
     const transactionDate = new Date(transaction.date)
     return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear
@@ -50,51 +71,33 @@ export default function Dashboard() {
 
   const monthlySavings = monthlyIncome - monthlyExpenses
 
-  // Get recent transactions (last 4)
-  const recentTransactions = transactions.slice(0, 4)
+  const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0)
 
-  // Calculate expenses by category - FIX: Added proper dependency array
-  useEffect(() => {
-    if (!transactionsLoading && monthlyTransactions.length > 0) {
-      const categoryMap: Record<string, { name: string; value: number; color: string }> = {}
+  const recentTransactions = transactions.slice(0, 5)
 
-      monthlyTransactions
-        .filter((t) => t.type === "expense")
-        .forEach((transaction: any) => {
-          const categoryName = transaction.categories?.name || "Others"
-          const categoryColor = transaction.categories?.color || "#64748b"
+  const activeGoals = goals.filter((goal) => goal.status === "active").slice(0, 3)
 
-          if (!categoryMap[categoryName]) {
-            categoryMap[categoryName] = { name: categoryName, value: 0, color: categoryColor }
-          }
-          categoryMap[categoryName].value += Math.abs(transaction.amount)
-        })
+  const budgetAlerts = budgets.filter((budget) => budget.percentage > 80).slice(0, 3)
 
-      setExpensesByCategory(Object.values(categoryMap))
-    } else {
-      setExpensesByCategory([])
-    }
-  }, [transactionsLoading, transactions.length]) // Only depend on these stable values
-
-  if (walletsLoading || transactionsLoading || goalsLoading) {
+  if (transactionsLoading || walletsLoading || goalsLoading || budgetsLoading || categoriesLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-background p-4 md:p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your financial data...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600">Welcome back! Here's your financial overview.</p>
+            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground">Welcome back! Here's your financial overview.</p>
           </div>
           <div className="flex gap-2">
             <Button asChild>
@@ -106,280 +109,246 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Rest of the component remains the same */}
-        {/* ... */}
-
-        {/* Overview Cards */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Wallet className="w-4 h-4" />
+                Total Balance
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₱{totalBalance.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Across {wallets.length} wallets</p>
+              <div className="text-2xl font-bold text-foreground">{formatCurrency(totalBalance)}</div>
+              <p className="text-xs text-muted-foreground mt-1">Across {wallets.length} accounts</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Income</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-green-600" />
+                Monthly Income
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">₱{monthlyIncome.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">This month</p>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(monthlyIncome)}</div>
+              <p className="text-xs text-muted-foreground mt-1">This month</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Expenses</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-red-600" />
+                Monthly Expenses
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">₱{monthlyExpenses.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">This month</p>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(monthlyExpenses)}</div>
+              <p className="text-xs text-muted-foreground mt-1">This month</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Savings</CardTitle>
-              <PiggyBank className="h-4 w-4 text-blue-600" />
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Net Savings
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">₱{monthlySavings.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">This month</p>
+              <div className={`text-2xl font-bold ${monthlySavings >= 0 ? "text-green-600" : "text-red-600"}`}>
+                {formatCurrency(monthlySavings)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">This month</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Charts */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Expenses by Category</CardTitle>
-                <CardDescription>Your spending breakdown for this month</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  {expensesByCategory.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={expensesByCategory}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
+          {/* Recent Transactions */}
+          <Card className="lg:col-span-2 bg-card border-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <CreditCard className="w-5 h-5" />
+                Recent Transactions
+              </CardTitle>
+              <CardDescription>Your latest financial activities</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentTransactions.length > 0 ? (
+                  recentTransactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-full ${
+                            transaction.type === "income"
+                              ? "bg-green-100 dark:bg-green-900"
+                              : "bg-red-100 dark:bg-red-900"
+                          }`}
                         >
-                          {expensesByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => `₱${value.toLocaleString()}`} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      <div className="text-center">
-                        <p>No expense data for this month</p>
-                        <Button asChild className="mt-4">
-                          <Link href="/transactions/new">Add your first transaction</Link>
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Transactions */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Recent Transactions</CardTitle>
-                  <CardDescription>Your latest financial activities</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/transactions">View All</Link>
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentTransactions.length > 0 ? (
-                    recentTransactions.map((transaction: any) => (
-                      <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-full ${transaction.type === "income" ? "bg-green-100" : "bg-red-100"}`}
-                          >
-                            {transaction.type === "income" ? (
-                              <ArrowUpRight className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <ArrowDownRight className="w-4 h-4 text-red-600" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">{transaction.description}</p>
-                            <p className="text-sm text-gray-500">
-                              {transaction.categories?.name || "Uncategorized"} •{" "}
-                              {transaction.wallets?.name || "Unknown"}
-                            </p>
-                          </div>
+                          {transaction.type === "income" ? (
+                            <ArrowUpRight className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <ArrowDownRight className="w-4 h-4 text-red-600 dark:text-red-400" />
+                          )}
                         </div>
-                        <div className="text-right">
-                          <p
-                            className={`font-semibold ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}
-                          >
-                            {transaction.type === "income" ? "+" : ""}₱{Math.abs(transaction.amount).toLocaleString()}
+                        <div>
+                          <p className="font-medium text-foreground">{transaction.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {transaction.categories?.name || "Uncategorized"}
                           </p>
-                          <p className="text-sm text-gray-500">{transaction.date}</p>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No transactions yet</p>
-                      <Button asChild className="mt-4">
-                        <Link href="/transactions/new">Add your first transaction</Link>
-                      </Button>
+                      <div className="text-right">
+                        <p
+                          className={`font-semibold ${
+                            transaction.type === "income" ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {transaction.type === "income" ? "+" : ""}
+                          {formatCurrency(Math.abs(transaction.amount))}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{transaction.date}</p>
+                      </div>
                     </div>
-                  )}
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No transactions yet</p>
+                    <Button asChild className="mt-4">
+                      <Link href="/transactions/new">Add your first transaction</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {recentTransactions.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href="/transactions">View All Transactions</Link>
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Right Column */}
+          {/* Quick Actions & Goals */}
           <div className="space-y-6">
-            {/* Wallets */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Wallets & Accounts</CardTitle>
-                  <CardDescription>Your money sources</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/wallets">Manage</Link>
-                </Button>
+            {/* Quick Actions */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-foreground">Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {wallets.length > 0 ? (
-                    wallets.map((wallet) => (
-                      <div key={wallet.id} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-full" style={{ backgroundColor: `${wallet.color}20` }}>
-                            {wallet.type === "cash" && <Banknote className="w-4 h-4" style={{ color: wallet.color }} />}
-                            {wallet.type === "bank" && (
-                              <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />
-                            )}
-                            {wallet.type === "digital" && (
-                              <Wallet className="w-4 h-4" style={{ color: wallet.color }} />
-                            )}
-                            {wallet.type === "savings" && (
-                              <PiggyBank className="w-4 h-4" style={{ color: wallet.color }} />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">{wallet.name}</p>
-                            <p className="text-sm text-gray-500 capitalize">{wallet.type}</p>
-                          </div>
-                        </div>
-                        <p className="font-semibold">₱{wallet.balance.toLocaleString()}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      <p>No wallets yet</p>
-                      <Button asChild className="mt-2" size="sm">
-                        <Link href="/wallets">Add wallet</Link>
-                      </Button>
-                    </div>
-                  )}
-                </div>
+              <CardContent className="space-y-3">
+                <Button asChild className="w-full justify-start">
+                  <Link href="/transactions/new">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Transaction
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild className="w-full justify-start">
+                  <Link href="/goals">
+                    <Target className="w-4 h-4 mr-2" />
+                    Set New Goal
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild className="w-full justify-start">
+                  <Link href="/budgets">
+                    <PieChart className="w-4 h-4 mr-2" />
+                    Create Budget
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild className="w-full justify-start">
+                  <Link href="/analytics">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    View Analytics
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
 
-            {/* Goals */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Financial Goals</CardTitle>
-                  <CardDescription>Track your progress</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/goals">View All</Link>
-                </Button>
+            {/* Active Goals */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <Target className="w-5 h-5" />
+                  Active Goals
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {goals.length > 0 ? (
-                    goals.slice(0, 3).map((goal) => {
+                  {activeGoals.length > 0 ? (
+                    activeGoals.map((goal) => {
                       const progress = (goal.current_amount / goal.target_amount) * 100
                       return (
                         <div key={goal.id} className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <p className="font-medium">{goal.name}</p>
-                            <Badge variant="outline">{progress.toFixed(0)}%</Badge>
+                            <p className="font-medium text-foreground">{goal.name}</p>
+                            <p className="text-sm text-muted-foreground">{progress.toFixed(0)}%</p>
                           </div>
                           <Progress value={progress} className="h-2" />
-                          <div className="flex justify-between text-sm text-gray-500">
-                            <span>₱{goal.current_amount.toLocaleString()}</span>
-                            <span>₱{goal.target_amount.toLocaleString()}</span>
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>{formatCurrency(goal.current_amount)}</span>
+                            <span>{formatCurrency(goal.target_amount)}</span>
                           </div>
                         </div>
                       )
                     })
                   ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      <p>No goals yet</p>
-                      <Button asChild className="mt-2" size="sm">
-                        <Link href="/goals">Create goal</Link>
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p className="text-sm">No active goals</p>
+                      <Button variant="outline" size="sm" asChild className="mt-2">
+                        <Link href="/goals">Create Goal</Link>
                       </Button>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
-
-            {/* Getting Started */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5" />
-                  Getting Started
-                </CardTitle>
-                <CardDescription>Complete your financial setup</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm font-medium text-blue-900">💡 Add Transactions</p>
-                    <p className="text-sm text-blue-700">Start tracking by adding your income and expenses.</p>
-                  </div>
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-sm font-medium text-green-900">🎯 Set Goals</p>
-                    <p className="text-sm text-green-700">Create financial goals to track your progress.</p>
-                  </div>
-                  <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <p className="text-sm font-medium text-yellow-900">💰 Add Wallets</p>
-                    <p className="text-sm text-yellow-700">Set up your bank accounts and wallets.</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
+
+        {/* Budget Alerts */}
+        {budgetAlerts.length > 0 && (
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <PieChart className="w-5 h-5" />
+                Budget Alerts
+              </CardTitle>
+              <CardDescription>Budgets that need your attention</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {budgetAlerts.map((budget) => (
+                  <div key={budget.id} className="p-4 rounded-lg bg-muted/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="font-medium text-foreground">{budget.name}</p>
+                      <span
+                        className={`text-sm font-medium ${
+                          budget.percentage > 100 ? "text-red-600" : "text-yellow-600"
+                        }`}
+                      >
+                        {budget.percentage.toFixed(0)}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={budget.percentage > 100 ? 100 : budget.percentage}
+                      className={`h-2 ${budget.percentage > 100 ? "bg-red-200" : "bg-yellow-200"}`}
+                    />
+                    <div className="flex justify-between text-sm text-muted-foreground mt-2">
+                      <span>{formatCurrency(budget.spent)}</span>
+                      <span>{formatCurrency(budget.limit_amount)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

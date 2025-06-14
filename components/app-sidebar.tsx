@@ -8,12 +8,12 @@ import {
   Home,
   LayoutDashboard,
   LogOut,
-  PieChart,
   PiggyBank,
   Settings,
   Sparkles,
   Tag,
   Wallet,
+  PieChart,
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -57,15 +57,15 @@ export function AppSidebar({ isOpen = true, onClose, className }: AppSidebarProp
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r bg-white shadow-lg transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r bg-background shadow-lg transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:shadow-none border-border",
           !isOpen && "-translate-x-full lg:translate-x-0",
           className,
         )}
       >
         {/* Header - Fixed height */}
-        <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-          <Link href="/" className="flex items-center gap-2 font-semibold" onClick={handleLinkClick}>
-            <Home className="h-5 w-5 text-blue-600" />
+        <div className="flex h-16 shrink-0 items-center justify-between border-b px-4 border-border">
+          <Link href="/" className="flex items-center gap-2 font-semibold text-foreground" onClick={handleLinkClick}>
+            <Home className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             <span>Expense Tracker</span>
           </Link>
           {onClose && (
@@ -86,8 +86,8 @@ export function AppSidebar({ isOpen = true, onClose, className }: AppSidebarProp
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200",
                     pathname === item.href
-                      ? "bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-600"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+                      ? "bg-primary/10 text-primary shadow-sm border-l-4 border-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
                   <item.icon className="h-5 w-5" />
@@ -99,13 +99,15 @@ export function AppSidebar({ isOpen = true, onClose, className }: AppSidebarProp
         </nav>
 
         {/* User section - Fixed at bottom */}
-        <div className="shrink-0 border-t bg-gray-50 p-4">
-          <div className="mb-3 text-xs text-gray-500 truncate">Signed in as: {user?.email}</div>
+        <div className="shrink-0 border-t bg-muted/50 p-4 border-border">
+          <div className="mb-3 text-xs text-muted-foreground truncate">
+            Signed in as: {user?.email || "demo@example.com"}
+          </div>
           <Button
             onClick={signOut}
             variant="outline"
             size="sm"
-            className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
           >
             <LogOut className="mr-2 h-4 w-4" />
             Sign Out

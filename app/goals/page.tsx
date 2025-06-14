@@ -145,21 +145,21 @@ export default function GoalsPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Goals & Budgets</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Goals</h1>
             <p className="text-gray-600">Set financial targets and track your spending limits</p>
           </div>
         </div>
 
         {/* Goals Tab */}
         <div className="space-y-6">
-          <div className="flex flex-col md:flex-row gap-1 md:gap-0 justify-between items-center">
+          <div className="flex flex-col md:flex-row gap-1 md:gap-0 justify-between items-start">
             <div>
               <h2 className="text-xl font-semibold">Your Financial Goals</h2>
               <p className="text-gray-600">Track progress towards your financial objectives</p>
             </div>
             <Dialog open={isGoalDialogOpen} onOpenChange={setIsGoalDialogOpen}>
               <DialogTrigger asChild>
-                <Button className=" w-full md:w-auto">
+                <Button className=" md:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Goal
                 </Button>

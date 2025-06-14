@@ -20,18 +20,18 @@ export async function POST(request: Request) {
       prompt: `User question: ${userQuery}
       
       Financial context:
-      - Monthly income: ₱${financialData.monthlyIncome?.toLocaleString() || "0"}
-      - Monthly expenses: ₱${Math.abs(
+      - Current balance: ₱${financialData.totalBalance?.toLocaleString() || "0"}
+      - This month's income: ₱${financialData.monthlyIncome?.toLocaleString() || "0"}
+      - This month's expenses: ₱${Math.abs(
         financialData.monthlyExpenses || 0
       ).toLocaleString()}
-      - Total income: ₱${financialData.totalIncome?.toLocaleString() || "0"}
-      - Total expenses: ₱${Math.abs(
+      - Overall income: ₱${financialData.totalIncome?.toLocaleString() || "0"}
+      - Overall expenses: ₱${Math.abs(
         financialData.totalExpenses || 0
       ).toLocaleString()}
       - This month's savings: ₱${
         financialData.monthlySavings?.toLocaleString() || "0"
       }
-      - Total balance: ₱${financialData.totalBalance?.toLocaleString() || "0"}
       - Savings rate: ${financialData.savingsRate?.toFixed(1) || "0"}%
       - Top spending categories: ${financialData.topCategories}
       - Number of goals: ${financialData.goals || 0}

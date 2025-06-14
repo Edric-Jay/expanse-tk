@@ -579,9 +579,9 @@ export default function AIInsightsPage() {
   const getImpactBadge = (impact: string) => {
     switch (impact) {
       case "high":
-        return <Badge variant="destructive">High Impact</Badge>;
+        return <Badge variant="destructive">High</Badge>;
       case "medium":
-        return <Badge variant="default">Medium Impact</Badge>;
+        return <Badge variant="default">Medium</Badge>;
       case "positive":
         return (
           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
@@ -589,7 +589,7 @@ export default function AIInsightsPage() {
           </Badge>
         );
       default:
-        return <Badge variant="secondary">Low Impact</Badge>;
+        return <Badge variant="secondary">Low</Badge>;
     }
   };
 

@@ -12,7 +12,11 @@ import { Separator } from "@/components/ui/separator"
 import { Settings, User, Bell, Shield, Palette, Globe, Download, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth/auth-provider"
-import { supabase } from "@/lib/supabase"
+import { useCurrency } from "@/hooks/use-currency"
+import { useTheme } from "@/hooks/use-theme"
+import { useNotifications } from "@/hooks/use-notifications"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "@/lib/database.types"
 
 const currencies = [
   { code: "PHP", name: "Philippine Peso", symbol: "₱" },
@@ -39,14 +43,18 @@ const themes = [
 export default function SettingsPage() {
   const { toast } = useToast()
   const { user, signOut } = useAuth()
+  const { currency, setCurrency } = useCurrency()
+  const { theme, setTheme } = useTheme()
+  const { requestNotificationPermission, scheduleNotifications } = useNotifications()
+  const supabase = createClientComponentClient<Database>()
+
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [userSettings, setUserSettings] = useState<any>(null)
   const [formData, setFormData] = useState({
     full_name: "",
-    currency: "PHP",
     language: "en",
-    theme: "light",
     email_notifications: true,
     push_notifications: true,
     budget_alerts: true,
@@ -56,6 +64,7 @@ export default function SettingsPage() {
     analytics: true,
     auto_backup: true,
     biometric_auth: false,
+    notification_times: ["06:00", "12:00", "20:00"],
   })
 
   const [stats, setStats] = useState({
@@ -74,9 +83,7 @@ export default function SettingsPage() {
       setLoading(false)
       setUserProfile({ full_name: "Demo User" })
       setUserSettings({
-        currency: "PHP",
         language: "en",
-        theme: "light",
         email_notifications: true,
         push_notifications: true,
         budget_alerts: true,
@@ -89,9 +96,7 @@ export default function SettingsPage() {
       })
       setFormData({
         full_name: "Demo User",
-        currency: "PHP",
         language: "en",
-        theme: "light",
         email_notifications: true,
         push_notifications: true,
         budget_alerts: true,
@@ -101,6 +106,7 @@ export default function SettingsPage() {
         analytics: true,
         auto_backup: true,
         biometric_auth: false,
+        notification_times: ["06:00", "12:00", "20:00"],
       })
       setStats({
         transactions: 12,
@@ -115,50 +121,20 @@ export default function SettingsPage() {
     try {
       setLoading(true)
 
-      if (!supabase) {
-        // Demo mode
-        setUserProfile({ full_name: "Demo User" })
-        setUserSettings({
-          currency: "PHP",
-          language: "en",
-          theme: "light",
-          email_notifications: true,
-          push_notifications: true,
-          budget_alerts: true,
-          goal_reminders: true,
-          weekly_reports: true,
-          data_sharing: false,
-          analytics: true,
-          auto_backup: true,
-          biometric_auth: false,
-        })
-        setFormData({
-          full_name: "Demo User",
-          currency: "PHP",
-          language: "en",
-          theme: "light",
-          email_notifications: true,
-          push_notifications: true,
-          budget_alerts: true,
-          goal_reminders: true,
-          weekly_reports: true,
-          data_sharing: false,
-          analytics: true,
-          auto_backup: true,
-          biometric_auth: false,
-        })
+      if (!user) {
+        setLoading(false)
         return
       }
 
       // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
-        .from("users")
+        .from("profiles")
         .select("*")
         .eq("id", user?.id)
         .single()
 
       if (profileError && profileError.code !== "PGRST116") {
-        throw profileError
+        console.error("Profile fetch error:", profileError)
       }
 
       // Fetch user settings
@@ -169,7 +145,7 @@ export default function SettingsPage() {
         .single()
 
       if (settingsError && settingsError.code !== "PGRST116") {
-        throw settingsError
+        console.error("Settings fetch error:", settingsError)
       }
 
       setUserProfile(profileData)
@@ -178,18 +154,17 @@ export default function SettingsPage() {
       // Update form data
       setFormData({
         full_name: profileData?.full_name || "",
-        currency: settingsData?.currency || "PHP",
         language: settingsData?.language || "en",
-        theme: settingsData?.theme || "light",
-        email_notifications: settingsData?.email_notifications ?? true,
-        push_notifications: settingsData?.push_notifications ?? true,
-        budget_alerts: settingsData?.budget_alerts ?? true,
-        goal_reminders: settingsData?.goal_reminders ?? true,
-        weekly_reports: settingsData?.weekly_reports ?? true,
-        data_sharing: settingsData?.data_sharing ?? false,
-        analytics: settingsData?.analytics ?? true,
-        auto_backup: settingsData?.auto_backup ?? true,
-        biometric_auth: settingsData?.biometric_auth ?? false,
+        email_notifications: settingsData?.notifications?.email ?? true,
+        push_notifications: settingsData?.notifications?.push ?? true,
+        budget_alerts: settingsData?.notifications?.budgetAlerts ?? true,
+        goal_reminders: settingsData?.notifications?.goalUpdates ?? true,
+        weekly_reports: settingsData?.notifications?.weeklyReports ?? true,
+        data_sharing: settingsData?.privacy?.shareData ?? false,
+        analytics: settingsData?.privacy?.anonymousAnalytics ?? true,
+        auto_backup: true,
+        biometric_auth: false,
+        notification_times: settingsData?.notification_times || ["06:00", "12:00", "20:00"],
       })
     } catch (error: any) {
       console.error("Error fetching user data:", error)
@@ -205,7 +180,7 @@ export default function SettingsPage() {
 
   const fetchStats = async () => {
     try {
-      if (!supabase || !user) {
+      if (!user) {
         // Demo mode
         setStats({
           transactions: 12,
@@ -252,62 +227,100 @@ export default function SettingsPage() {
   }
 
   const handleSave = async () => {
+    if (!user) {
+      // Demo mode
+      toast({
+        title: "Demo Mode",
+        description: "Settings would be saved in a real account.",
+      })
+      return
+    }
+
     try {
-      if (!supabase || !user) {
-        // Demo mode
-        toast({
-          title: "Demo Mode",
-          description: "Settings would be saved in a real account.",
-        })
-        return
+      setSaving(true)
+
+      // First, ensure the user has records by calling a function that creates them
+      const { error: ensureError } = await supabase.rpc("ensure_user_records", {
+        user_id: user.id,
+        user_email: user.email || "",
+        user_name: formData.full_name || user.email || "",
+      })
+
+      if (ensureError) {
+        console.log("Ensure records error (may be expected):", ensureError)
       }
 
-      // Update user profile
-      const { error: profileError } = await supabase.from("users").upsert({
-        id: user?.id,
-        email: user?.email,
-        full_name: formData.full_name,
-        updated_at: new Date().toISOString(),
-      })
+      // Now update the profile
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.full_name,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id)
 
-      if (profileError) throw profileError
+      if (profileError) {
+        console.error("Profile update error:", profileError)
+        throw new Error(`Failed to save profile: ${profileError.message}`)
+      }
 
       // Update user settings
-      const { error: settingsError } = await supabase.from("user_settings").upsert({
-        user_id: user?.id,
-        currency: formData.currency,
-        language: formData.language,
-        theme: formData.theme,
-        email_notifications: formData.email_notifications,
-        push_notifications: formData.push_notifications,
-        budget_alerts: formData.budget_alerts,
-        goal_reminders: formData.goal_reminders,
-        weekly_reports: formData.weekly_reports,
-        data_sharing: formData.data_sharing,
-        analytics: formData.analytics,
-        auto_backup: formData.auto_backup,
-        biometric_auth: formData.biometric_auth,
-        updated_at: new Date().toISOString(),
-      })
+      const { error: settingsError } = await supabase
+        .from("user_settings")
+        .update({
+          language: formData.language,
+          currency: currency,
+          theme: theme,
+          notifications: {
+            email: formData.email_notifications,
+            push: formData.push_notifications,
+            budgetAlerts: formData.budget_alerts,
+            goalUpdates: formData.goal_reminders,
+            weeklyReports: formData.weekly_reports,
+            insights: true,
+          },
+          privacy: {
+            shareData: formData.data_sharing,
+            anonymousAnalytics: formData.analytics,
+          },
+          notification_times: formData.notification_times,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id)
 
-      if (settingsError) throw settingsError
+      if (settingsError) {
+        console.error("Settings update error:", settingsError)
+        throw new Error(`Failed to save settings: ${settingsError.message}`)
+      }
+
+      // Schedule notifications if push notifications are enabled
+      if (formData.push_notifications) {
+        await requestNotificationPermission()
+        scheduleNotifications()
+      }
 
       toast({
         title: "Settings Saved",
         description: "Your preferences have been updated successfully.",
       })
+
+      // Refresh the data
+      await fetchUserData()
     } catch (error: any) {
+      console.error("Save error:", error)
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to save settings",
         variant: "destructive",
       })
+    } finally {
+      setSaving(false)
     }
   }
 
   const handleExportData = async () => {
     try {
-      if (!supabase || !user) {
+      if (!user) {
         // Demo mode
         const demoData = {
           transactions: [
@@ -381,7 +394,7 @@ export default function SettingsPage() {
   const handleDeleteAccount = async () => {
     if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
       try {
-        if (!supabase || !user) {
+        if (!user) {
           // Demo mode
           toast({
             title: "Demo Mode",
@@ -396,7 +409,7 @@ export default function SettingsPage() {
         await supabase.from("wallets").delete().eq("user_id", user?.id)
         await supabase.from("categories").delete().eq("user_id", user?.id)
         await supabase.from("user_settings").delete().eq("user_id", user?.id)
-        await supabase.from("users").delete().eq("id", user?.id)
+        await supabase.from("profiles").delete().eq("id", user?.id)
 
         await signOut()
 
@@ -422,7 +435,7 @@ export default function SettingsPage() {
   }
 
   const handleChangePassword = () => {
-    if (!supabase || !user?.email) {
+    if (!user?.email) {
       toast({
         title: "Demo Mode",
         description: "Password change is not available in demo mode.",
@@ -440,115 +453,126 @@ export default function SettingsPage() {
     })
   }
 
-  const applyTheme = (theme: string) => {
-    // Apply theme to the document
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-    }
-
-    // Save theme preference
-    localStorage.setItem("theme", theme)
-
-    toast({
-      title: "Theme Applied",
-      description: `${theme.charAt(0).toUpperCase() + theme.slice(1)} theme has been applied.`,
-    })
-  }
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading settings...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading settings...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg">
-            <Settings className="w-8 h-8 text-blue-600" />
+          <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+            <Settings className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-600">Manage your account and app preferences</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+            <p className="text-gray-600 dark:text-gray-400">Manage your account and app preferences</p>
           </div>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto gap-1">
-            <TabsTrigger value="profile" className="text-xs md:text-sm px-2 py-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-1 h-fit">
+            <TabsTrigger
+              value="profile"
+              className="text-xs md:text-sm px-3 py-2 rounded-md data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900 dark:data-[state=active]:text-blue-300"
+            >
               Profile
             </TabsTrigger>
-            <TabsTrigger value="preferences" className="text-xs md:text-sm px-2 py-2">
+            <TabsTrigger
+              value="preferences"
+              className="text-xs md:text-sm px-3 py-2 rounded-md data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900 dark:data-[state=active]:text-blue-300"
+            >
               Preferences
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="text-xs md:text-sm px-2 py-2">
+            <TabsTrigger
+              value="notifications"
+              className="text-xs md:text-sm px-3 py-2 rounded-md data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900 dark:data-[state=active]:text-blue-300"
+            >
               Notifications
             </TabsTrigger>
-            <TabsTrigger value="privacy" className="text-xs md:text-sm px-2 py-2">
+            <TabsTrigger
+              value="privacy"
+              className="text-xs md:text-sm px-3 py-2 rounded-md data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900 dark:data-[state=active]:text-blue-300"
+            >
               Privacy
             </TabsTrigger>
-            <TabsTrigger value="data" className="text-xs md:text-sm px-2 py-2">
+            <TabsTrigger
+              value="data"
+              className="text-xs md:text-sm px-3 py-2 rounded-md data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 dark:data-[state=active]:bg-blue-900 dark:data-[state=active]:text-blue-300"
+            >
               Data
             </TabsTrigger>
           </TabsList>
 
           {/* Profile Tab */}
           <TabsContent value="profile">
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                   <User className="w-5 h-5" />
                   Profile Information
                 </CardTitle>
-                <CardDescription>Update your personal information</CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
+                  Update your personal information
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">
+                      Full Name
+                    </Label>
                     <Input
                       id="name"
                       value={formData.full_name}
                       onChange={(e) => updateFormData("full_name", e.target.value)}
+                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
+                      Email Address
+                    </Label>
                     <Input
                       id="email"
                       type="email"
                       value={user?.email || "demo@example.com"}
                       disabled
-                      className="bg-gray-50"
+                      className="bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
                     />
-                    <p className="text-xs text-gray-500">Email cannot be changed</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Email cannot be changed</p>
                   </div>
                 </div>
 
-                <Separator />
+                <Separator className="bg-gray-200 dark:bg-gray-700" />
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Security</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Security</h3>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Biometric Authentication</Label>
-                      <p className="text-sm text-gray-600">Use fingerprint or face recognition to unlock the app</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Biometric Authentication</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Use fingerprint or face recognition to unlock the app
+                      </p>
                     </div>
                     <Switch
                       checked={formData.biometric_auth}
                       onCheckedChange={(checked: any) => updateFormData("biometric_auth", checked)}
                     />
                   </div>
-                  <Button variant="outline" onClick={handleChangePassword}>
+                  <Button
+                    variant="outline"
+                    onClick={handleChangePassword}
+                    className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                  >
                     Change Password
                   </Button>
                 </div>
@@ -558,26 +582,30 @@ export default function SettingsPage() {
 
           {/* Preferences Tab */}
           <TabsContent value="preferences">
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                   <Palette className="w-5 h-5" />
                   App Preferences
                 </CardTitle>
-                <CardDescription>Customize your app experience</CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
+                  Customize your app experience
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="currency">Default Currency</Label>
-                    <Select value={formData.currency} onValueChange={(value) => updateFormData("currency", value)}>
-                      <SelectTrigger>
+                    <Label htmlFor="currency" className="text-gray-700 dark:text-gray-300">
+                      Default Currency
+                    </Label>
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        {currencies.map((currency) => (
-                          <SelectItem key={currency.code} value={currency.code}>
-                            {currency.symbol} {currency.name} ({currency.code})
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+                        {currencies.map((curr) => (
+                          <SelectItem key={curr.code} value={curr.code} className="text-gray-900 dark:text-white">
+                            {curr.symbol} {curr.name} ({curr.code})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -585,14 +613,20 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="language">Language</Label>
+                    <Label htmlFor="language" className="text-gray-700 dark:text-gray-300">
+                      Language
+                    </Label>
                     <Select value={formData.language} onValueChange={(value) => updateFormData("language", value)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
                         {languages.map((language) => (
-                          <SelectItem key={language.code} value={language.code}>
+                          <SelectItem
+                            key={language.code}
+                            value={language.code}
+                            className="text-gray-900 dark:text-white"
+                          >
                             {language.name}
                           </SelectItem>
                         ))}
@@ -602,35 +636,37 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="theme">Theme</Label>
-                  <Select
-                    value={formData.theme}
-                    onValueChange={(value) => {
-                      updateFormData("theme", value)
-                      applyTheme(value)
-                    }}
-                  >
-                    <SelectTrigger className="w-full md:w-[200px]">
+                  <Label htmlFor="theme" className="text-gray-700 dark:text-gray-300">
+                    Theme
+                  </Label>
+                  <Select value={theme} onValueChange={setTheme}>
+                    <SelectTrigger className="w-full md:w-[200px] bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      {themes.map((theme) => (
-                        <SelectItem key={theme.value} value={theme.value}>
-                          {theme.name}
+                    <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+                      {themes.map((themeOption) => (
+                        <SelectItem
+                          key={themeOption.value}
+                          value={themeOption.value}
+                          className="text-gray-900 dark:text-white"
+                        >
+                          {themeOption.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <Separator />
+                <Separator className="bg-gray-200 dark:bg-gray-700" />
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">App Behavior</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">App Behavior</h3>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Auto Backup</Label>
-                      <p className="text-sm text-gray-600">Automatically backup your data to the cloud</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Auto Backup</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Automatically backup your data to the cloud
+                      </p>
                     </div>
                     <Switch
                       checked={formData.auto_backup}
@@ -644,20 +680,22 @@ export default function SettingsPage() {
 
           {/* Notifications Tab */}
           <TabsContent value="notifications">
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                   <Bell className="w-5 h-5" />
                   Notification Settings
                 </CardTitle>
-                <CardDescription>Choose what notifications you want to receive</CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
+                  Choose what notifications you want to receive
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Email Notifications</Label>
-                      <p className="text-sm text-gray-600">Receive notifications via email</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Email Notifications</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Receive notifications via email</p>
                     </div>
                     <Switch
                       checked={formData.email_notifications}
@@ -667,8 +705,10 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Push Notifications</Label>
-                      <p className="text-sm text-gray-600">Receive push notifications on your device</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Push Notifications</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Receive push notifications on your device
+                      </p>
                     </div>
                     <Switch
                       checked={formData.push_notifications}
@@ -676,14 +716,16 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <Separator />
+                  <Separator className="bg-gray-200 dark:bg-gray-700" />
 
-                  <h3 className="text-lg font-semibold">Specific Notifications</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Specific Notifications</h3>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Budget Alerts</Label>
-                      <p className="text-sm text-gray-600">Get notified when you exceed budget limits</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Budget Alerts</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Get notified when you exceed budget limits
+                      </p>
                     </div>
                     <Switch
                       checked={formData.budget_alerts}
@@ -693,8 +735,8 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Goal Reminders</Label>
-                      <p className="text-sm text-gray-600">Reminders about your financial goals</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Goal Reminders</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Reminders about your financial goals</p>
                     </div>
                     <Switch
                       checked={formData.goal_reminders}
@@ -704,13 +746,33 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Weekly Reports</Label>
-                      <p className="text-sm text-gray-600">Weekly summary of your financial activity</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Weekly Reports</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Weekly summary of your financial activity
+                      </p>
                     </div>
                     <Switch
                       checked={formData.weekly_reports}
                       onCheckedChange={(checked: any) => updateFormData("weekly_reports", checked)}
                     />
+                  </div>
+
+                  <Separator className="bg-gray-200 dark:bg-gray-700" />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reminder Times</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Get reminded to track your expenses at these times: 6:00 AM, 12:00 PM, and 8:00 PM
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Daily reminders enabled
+                      </span>
+                      <Switch
+                        checked={formData.push_notifications}
+                        onCheckedChange={(checked: any) => updateFormData("push_notifications", checked)}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -719,20 +781,24 @@ export default function SettingsPage() {
 
           {/* Privacy Tab */}
           <TabsContent value="privacy">
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                   <Shield className="w-5 h-5" />
                   Privacy & Security
                 </CardTitle>
-                <CardDescription>Control your privacy and data sharing preferences</CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
+                  Control your privacy and data sharing preferences
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Data Sharing</Label>
-                      <p className="text-sm text-gray-600">Share anonymized data to help improve the app</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Data Sharing</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Share anonymized data to help improve the app
+                      </p>
                     </div>
                     <Switch
                       checked={formData.data_sharing}
@@ -742,8 +808,8 @@ export default function SettingsPage() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Analytics</Label>
-                      <p className="text-sm text-gray-600">Allow collection of usage analytics</p>
+                      <Label className="text-gray-700 dark:text-gray-300">Analytics</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Allow collection of usage analytics</p>
                     </div>
                     <Switch
                       checked={formData.analytics}
@@ -752,16 +818,24 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <Separator />
+                <Separator className="bg-gray-200 dark:bg-gray-700" />
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Data Management</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Data Management</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button variant="outline" onClick={handleExportData}>
+                    <Button
+                      variant="outline"
+                      onClick={handleExportData}
+                      className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    >
                       <Download className="w-4 h-4 mr-2" />
                       Export My Data
                     </Button>
-                    <Button variant="outline" className="text-red-600 hover:text-red-700" onClick={handleDeleteAccount}>
+                    <Button
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700 border-red-300 dark:border-red-600"
+                      onClick={handleDeleteAccount}
+                    >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Delete Account
                     </Button>
@@ -773,51 +847,67 @@ export default function SettingsPage() {
 
           {/* Data Tab */}
           <TabsContent value="data">
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                   <Globe className="w-5 h-5" />
                   Data Management
                 </CardTitle>
-                <CardDescription>Import, export, and manage your financial data</CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
+                  Import, export, and manage your financial data
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Export Data</h3>
-                  <p className="text-sm text-gray-600">Download your data in various formats for backup or analysis</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Export Data</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Download your data in various formats for backup or analysis
+                  </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Button variant="outline" onClick={handleExportData}>
+                    <Button
+                      variant="outline"
+                      onClick={handleExportData}
+                      className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    >
                       Export as JSON
                     </Button>
-                    <Button variant="outline" onClick={handleExportData}>
+                    <Button
+                      variant="outline"
+                      onClick={handleExportData}
+                      className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    >
                       Export as CSV
                     </Button>
-                    <Button variant="outline" onClick={handleExportData}>
+                    <Button
+                      variant="outline"
+                      onClick={handleExportData}
+                      className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    >
                       Export as PDF
                     </Button>
                   </div>
                 </div>
 
-                <Separator />
+                <Separator className="bg-gray-200 dark:bg-gray-700" />
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Data Statistics</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Data Statistics</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{stats.transactions}</div>
-                      <div className="text-sm text-gray-600">Transactions</div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.transactions}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Transactions</div>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">{stats.wallets}</div>
-                      <div className="text-sm text-gray-600">Wallets</div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.wallets}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Wallets</div>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">{stats.goals}</div>
-                      <div className="text-sm text-gray-600">Goals</div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.goals}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Goals</div>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-orange-600">{stats.categories}</div>
-                      <div className="text-sm text-gray-600">Categories</div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.categories}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Categories</div>
                     </div>
                   </div>
                 </div>
@@ -828,8 +918,8 @@ export default function SettingsPage() {
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <Button onClick={handleSave} size="lg">
-            Save Changes
+          <Button onClick={handleSave} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </div>

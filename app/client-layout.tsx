@@ -6,12 +6,11 @@ import { usePathname, useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { MobileHeader } from "@/components/mobile-header"
 import { useAuth } from "@/components/auth/auth-provider"
-import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
-  const { user, loading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Handle authentication redirects
@@ -31,46 +30,59 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   }, [user, loading, pathname, router])
 
-  // Don't show sidebar on auth page
-  const isAuthPage = pathname === "/auth"
+  // Close sidebar when route changes
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [pathname])
 
+  // Show loading while checking auth
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
-          <p className="text-sm text-gray-600">Loading...</p>
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     )
   }
 
-  if (isAuthPage) {
-    return <div className="min-h-screen bg-gray-50">{children}</div>
+  // Don't show sidebar on auth page
+  if (pathname === "/auth") {
+    return <div className="min-h-screen bg-background">{children}</div>
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Redirecting...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Desktop Sidebar - Fixed height */}
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <AppSidebar />
       </div>
 
-      {/* Mobile Sidebar - Fixed height */}
+      {/* Mobile Sidebar */}
       <AppSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} className="lg:hidden" />
 
-      {/* Main Content Area - Fixed height */}
+      {/* Main Content Area */}
       <div className="flex flex-1 flex-col h-screen overflow-hidden">
-        {/* Mobile Header - Fixed height */}
+        {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
-        {/* Page Content - Scrollable */}
+        {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className=" mx-auto lg:mx-8 p-4 lg:p-6 lg:max-w-[calc(100vw-256px)] max-w-7xl ">{children}</div>
+          <div className="mx-auto lg:mx-8 p-4 lg:p-6 lg:max-w-[calc(100vw-256px)] max-w-7xl">{children}</div>
         </main>
-
-        {/* PWA Install Prompt */}
-        <PWAInstallPrompt />
       </div>
     </div>
   )

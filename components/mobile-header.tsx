@@ -44,7 +44,7 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 shadow-sm lg:hidden">
+    <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background px-4 shadow-sm lg:hidden border-border">
       <div className="flex items-center gap-3">
         {canGoBack() ? (
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -55,7 +55,7 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
             <Menu className="h-5 w-5" />
           </Button>
         )}
-        <h1 className="text-lg font-semibold text-gray-900">{getPageTitle()}</h1>
+        <h1 className="text-lg font-semibold text-foreground">{getPageTitle()}</h1>
       </div>
     </header>
   )
