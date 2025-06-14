@@ -848,7 +848,7 @@ export default function AIInsightsPage() {
                     smartSuggestions.map((suggestion) => (
                       <div
                         key={suggestion.id}
-                        className="p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+                        className="p-3 rounded-lg border hover:bg-muted transition-colors"
                       >
                         <div className="flex items-start gap-3 mb-3">
                           <div className="p-2 bg-blue-100 rounded-full">
@@ -876,13 +876,6 @@ export default function AIInsightsPage() {
                                 </Badge>
                               )}
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7 w-full"
-                            >
-                              Apply Suggestion
-                            </Button>
                           </div>
                         </div>
                       </div>

@@ -27,15 +27,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <AuthProvider>
             <CurrencyProvider>
-              <ClientLayout>{children}</ClientLayout>
-            </CurrencyProvider>
+                <ClientLayout>{children}</ClientLayout>
+              </CurrencyProvider>
             <Toaster />
             <PWAInstallPrompt />
-          </ThemeProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
