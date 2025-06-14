@@ -1610,7 +1610,7 @@ What specific area would you like me to dive deeper into?`
                       ref={textareaRef}
                       value={chatMessage}
                       onChange={(e) => setChatMessage(e.target.value)}
-                      placeholder="Ask about your finances, salary optimization, or 'what if' scenarios..."
+                      placeholder="Ask about your finances or salary optimization"
                       className="min-h-[40px] max-h-24 resize-none text-sm"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
