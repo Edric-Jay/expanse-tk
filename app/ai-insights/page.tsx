@@ -1024,13 +1024,13 @@ What specific area would you like me to dive deeper into?`
       case "high":
         return (
           <Badge variant="destructive" className="text-xs">
-            High Impact
+            High
           </Badge>
         )
       case "medium":
         return (
           <Badge variant="default" className="text-xs">
-            Medium Impact
+            Medium
           </Badge>
         )
       case "positive":
@@ -1048,7 +1048,7 @@ What specific area would you like me to dive deeper into?`
       default:
         return (
           <Badge variant="secondary" className="text-xs">
-            Low Impact
+            Low
           </Badge>
         )
     }
@@ -1085,7 +1085,7 @@ What specific area would you like me to dive deeper into?`
             variant="outline"
             className="text-red-600 border-red-200 dark:text-red-400 dark:border-red-800 text-xs"
           >
-            High Effort
+            High
           </Badge>
         )
       case "medium":
@@ -1094,7 +1094,7 @@ What specific area would you like me to dive deeper into?`
             variant="outline"
             className="text-yellow-600 border-yellow-200 dark:text-yellow-400 dark:border-yellow-800 text-xs"
           >
-            Medium Effort
+            Medium
           </Badge>
         )
       default:
@@ -1103,7 +1103,7 @@ What specific area would you like me to dive deeper into?`
             variant="outline"
             className="text-green-600 border-green-200 dark:text-green-400 dark:border-green-800 text-xs"
           >
-            Low Effort
+            Low
           </Badge>
         )
     }
@@ -1257,15 +1257,15 @@ What specific area would you like me to dive deeper into?`
         {/* Mobile-optimized tabs */}
         <Tabs defaultValue="insights" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 h-12">
-            <TabsTrigger value="insights" className="text-xs">
+            <TabsTrigger value="insights" className="text-xs h-full">
               <Sparkles className="w-4 h-4 mr-1" />
               Insights
             </TabsTrigger>
-            <TabsTrigger value="suggestions" className="text-xs">
+            <TabsTrigger value="suggestions" className="text-xs h-full">
               <Lightbulb className="w-4 h-4 mr-1" />
               Tips
             </TabsTrigger>
-            <TabsTrigger value="assistant" className="text-xs">
+            <TabsTrigger value="assistant" className="text-xs h-full">
               <MessageSquare className="w-4 h-4 mr-1" />
               Chat
             </TabsTrigger>
