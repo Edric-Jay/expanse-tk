@@ -41,10 +41,10 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <CurrencyProvider>
-                <ClientLayout>{children}</ClientLayout>
-              </CurrencyProvider>
-            <Toaster />
-            <PWAInstallPrompt />
+              <ClientLayout>{children}</ClientLayout>
+              <Toaster />
+              <PWAInstallPrompt />
+            </CurrencyProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

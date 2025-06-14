@@ -1,17 +1,17 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { useState, useEffect, useMemo, useRef } from "react"
+import ReactMarkdown from "react-markdown"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import {
   Bot,
   TrendingUp,
@@ -24,34 +24,105 @@ import {
   Sparkles,
   PiggyBank,
   CreditCard,
-  Calendar,
   DollarSign,
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useTransactions } from "@/hooks/use-transactions";
-import { useWallets } from "@/hooks/use-wallets";
-import { useGoals } from "@/hooks/use-goals";
+  RefreshCw,
+  Clock,
+  Filter,
+  ThumbsUp,
+  ThumbsDown,
+  Settings,
+  Zap,
+  TrendingDown,
+  Copy,
+  Bookmark,
+  BookmarkCheck,
+  ChevronDown,
+  ChevronUp,
+  Heart,
+  Brain,
+  Activity,
+  Shield,
+  Wallet,
+  Plus,
+  X,
+  Calculator,
+} from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useTransactions } from "@/hooks/use-transactions"
+import { useWallets } from "@/hooks/use-wallets"
+import { useGoals } from "@/hooks/use-goals"
+import { useBudgets } from "@/hooks/use-budgets"
+import { useCategories } from "@/hooks/use-categories"
+import { useAuth } from "@/components/auth/auth-provider"
+import { useRouter } from "next/navigation"
 
 interface SmartSuggestion {
-  id: number;
-  title: string;
-  description: string;
-  priority: "high" | "medium" | "low";
-  effort: "low" | "medium" | "high";
-  category: string;
-  potentialSavings?: number;
-  icon: any;
+  id: number
+  title: string
+  description: string
+  priority: "high" | "medium" | "low"
+  effort: "low" | "medium" | "high"
+  category: string
+  potentialSavings?: number
+  icon: any
+  actions?: {
+    primary: string
+    secondary?: string
+  }
+  timeframe?: string
+  impact?: number
+}
+
+interface ChatMessage {
+  id: number
+  type: "user" | "ai"
+  message: string
+  timestamp: string
+  isHypothetical?: boolean
+  dataUsed?: string
+  isBookmarked?: boolean
+  isLiked?: boolean
+}
+
+interface AIPreferences {
+  dataAccess: {
+    transactions: boolean
+    wallets: boolean
+    goals: boolean
+    budgets: boolean
+    categories: boolean
+    personalInfo: boolean
+  }
+  insights: {
+    spending: boolean
+    saving: boolean
+    investment: boolean
+    debt: boolean
+  }
+  notifications: {
+    insights: boolean
+    suggestions: boolean
+    weeklyReport: boolean
+  }
+  personalization: {
+    riskTolerance: "low" | "medium" | "high"
+    financialGoals: string[]
+    savingsTarget: number
+  }
 }
 
 export default function AIInsightsPage() {
-  const { toast } = useToast();
-  const { transactions, loading: transactionsLoading } = useTransactions();
-  const { wallets, loading: walletsLoading } = useWallets();
-  const { goals, loading: goalsLoading } = useGoals();
-  console.log("Transactions:", transactions);
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
+  const { transactions, loading: transactionsLoading } = useTransactions()
+  const { wallets, loading: walletsLoading } = useWallets()
+  const { goals, loading: goalsLoading } = useGoals()
+  const { budgets, loading: budgetsLoading } = useBudgets()
+  const { categories, loading: categoriesLoading } = useCategories()
 
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState([
+  const [chatMessage, setChatMessage] = useState("")
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     {
       id: 1,
       type: "ai",
@@ -59,955 +130,1629 @@ export default function AIInsightsPage() {
         "Hi! I'm your AI financial assistant. I can help you analyze your spending patterns, suggest optimizations, and answer questions about your finances. What would you like to know?",
       timestamp: new Date().toISOString(),
     },
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [insights, setInsights] = useState<any[]>([]);
-  const [smartSuggestions, setSmartSuggestions] = useState<SmartSuggestion[]>(
-    []
-  );
+  ])
+  const [isLoading, setIsLoading] = useState(false)
+  const [insights, setInsights] = useState<any[]>([])
+  const [smartSuggestions, setSmartSuggestions] = useState<SmartSuggestion[]>([])
+  const [activeTab, setActiveTab] = useState("insights")
+  const [aiPreferences, setAIPreferences] = useState<AIPreferences>({
+    dataAccess: {
+      transactions: true,
+      wallets: true,
+      goals: true,
+      budgets: true,
+      categories: true,
+      personalInfo: false,
+    },
+    insights: {
+      spending: true,
+      saving: true,
+      investment: true,
+      debt: true,
+    },
+    notifications: {
+      insights: true,
+      suggestions: true,
+      weeklyReport: true,
+    },
+    personalization: {
+      riskTolerance: "medium",
+      financialGoals: ["Emergency Fund", "Retirement", "Vacation"],
+      savingsTarget: 20,
+    },
+  })
+  const [insightFilter, setInsightFilter] = useState("all")
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<number, "like" | "dislike" | null>>({})
+  const [refreshing, setRefreshing] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [showPreferences, setShowPreferences] = useState(false)
+  const [expandedInsights, setExpandedInsights] = useState<Record<number, boolean>>({})
+  const [bookmarkedMessages, setBookmarkedMessages] = useState<Set<number>>(new Set())
+  const [likedMessages, setLikedMessages] = useState<Set<number>>(new Set())
+  const [quickActions, setQuickActions] = useState([
+    "How can I save more money?",
+    "What's my spending pattern?",
+    "Should I invest my savings?",
+    "How to create an emergency fund?",
+    "What if my income increases by 20%?",
+    "Best budgeting strategy for me?",
+  ])
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const monthlyTransactions = transactions.filter((transaction) => {
-    const transactionDate = new Date(transaction.date);
-    return (
-      transactionDate.getMonth() === currentMonth &&
-      transactionDate.getFullYear() === currentYear
-    );
-  });
+  const currentMonth = new Date().getMonth()
+  const currentYear = new Date().getFullYear()
 
-  const monthlyIncome = monthlyTransactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const monthlyTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      const transactionDate = new Date(transaction.date)
+      return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear
+    })
+  }, [transactions, currentMonth, currentYear])
 
-  const monthlyExpenses = Math.abs(
-    monthlyTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0)
-  );
+  const monthlyIncome = useMemo(() => {
+    return monthlyTransactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
+  }, [monthlyTransactions])
 
-  const monthlySavings = monthlyIncome - monthlyExpenses;
+  const monthlyExpenses = useMemo(() => {
+    return Math.abs(monthlyTransactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0))
+  }, [monthlyTransactions])
 
-  // Calculate all financial metrics first
-  const expenses = transactions.filter((t) => t.type === "expense");
-  const totalExpenses = Math.abs(
-    expenses.reduce((sum, t) => sum + t.amount, 0)
-  );
-  const income = transactions.filter((t) => t.type === "income");
-  const totalIncome = income.reduce((sum, t) => sum + t.amount, 0);
-  const savingsRate =
-    totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
-  const totalBalance = wallets.reduce((sum, w) => sum + w.balance, 0);
+  const monthlySavings = useMemo(() => {
+    return monthlyIncome - monthlyExpenses
+  }, [monthlyIncome, monthlyExpenses])
 
-  // Calculate financial health score function
-  const calculateHealthScore = () => {
-    let score = 70; // Base score
+  const expenses = useMemo(() => {
+    return transactions.filter((t) => t.type === "expense")
+  }, [transactions])
 
-    // Adjust based on savings rate
-    if (savingsRate > 20) score += 10;
-    else if (savingsRate < 10) score -= 10;
+  const totalExpenses = useMemo(() => {
+    return Math.abs(expenses.reduce((sum, t) => sum + t.amount, 0))
+  }, [expenses])
 
-    // Adjust based on goals progress
-    const goalProgress =
-      goals.reduce(
-        (sum, goal) => sum + (goal.current_amount / goal.target_amount) * 100,
-        0
-      ) / (goals.length || 1);
-    if (goalProgress > 50) score += 5;
-    else if (goalProgress < 20) score -= 5;
+  const income = useMemo(() => {
+    return transactions.filter((t) => t.type === "income")
+  }, [transactions])
 
-    // Adjust based on wallet diversity
-    if (wallets.length >= 3) score += 5;
+  const totalIncome = useMemo(() => {
+    return income.reduce((sum, t) => sum + t.amount, 0)
+  }, [income])
 
-    return Math.min(100, Math.max(0, score));
-  };
+  // Enhanced salary income calculation
+  const salaryData = useMemo(() => {
+    // Filter salary income transactions (common salary-related keywords)
+    const salaryKeywords = [
+      "salary",
+      "wage",
+      "payroll",
+      "income",
+      "pay",
+      "compensation",
+      "earnings",
+      "monthly pay",
+      "bi-weekly pay",
+      "weekly pay",
+      "job",
+      "work",
+      "employment",
+    ]
 
-  const healthScore = calculateHealthScore();
+    const salaryTransactions = income.filter((transaction) => {
+      const description = transaction.description?.toLowerCase() || ""
+      const categoryName = transaction.categories?.name?.toLowerCase() || ""
 
-  // Generate dynamic smart suggestions based on user data
-  const generateSmartSuggestions = (): SmartSuggestion[] => {
-    const suggestions: SmartSuggestion[] = [];
-    let suggestionId = 1;
+      // Check if transaction description or category contains salary keywords
+      return (
+        salaryKeywords.some((keyword) => description.includes(keyword) || categoryName.includes(keyword)) ||
+        // Also include transactions with "income" type and substantial amounts (likely salary)
+        (transaction.type === "income" && transaction.amount >= 10000)
+      ) // Assuming salary is at least 10k
+    })
 
-    // Group expenses by category
-    const expensesByCategory: Record<
-      string,
-      { amount: number; count: number }
-    > = {};
-    expenses.forEach((transaction: any) => {
-      const categoryName = transaction.categories?.name || "Others";
-      if (!expensesByCategory[categoryName]) {
-        expensesByCategory[categoryName] = { amount: 0, count: 0 };
+    // Group salary transactions by month-year
+    const salaryByMonth: Record<string, number> = {}
+
+    salaryTransactions.forEach((transaction) => {
+      const date = new Date(transaction.date)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+
+      if (!salaryByMonth[monthKey]) {
+        salaryByMonth[monthKey] = 0
       }
-      expensesByCategory[categoryName].amount += Math.abs(transaction.amount);
-      expensesByCategory[categoryName].count += 1;
-    });
+      salaryByMonth[monthKey] += transaction.amount
+    })
 
-    // Find top expense categories
+    // Calculate monthly average salary
+    const monthsWithSalary = Object.keys(salaryByMonth)
+    const totalSalaryIncome = Object.values(salaryByMonth).reduce((sum, amount) => sum + amount, 0)
+    const averageMonthlySalary = monthsWithSalary.length > 0 ? totalSalaryIncome / monthsWithSalary.length : 0
+
+    // Get last 6 months of salary data for trend analysis
+    const now = new Date()
+    const last6MonthsSalary: Array<{ month: string; amount: number }> = []
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      const monthName = date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+
+      last6MonthsSalary.push({
+        month: monthName,
+        amount: salaryByMonth[monthKey] || 0,
+      })
+    }
+
+    // Calculate salary growth trend
+    const recentSalaries = last6MonthsSalary.filter((s) => s.amount > 0)
+    let salaryGrowthRate = 0
+
+    if (recentSalaries.length >= 2) {
+      const firstSalary = recentSalaries[0].amount
+      const lastSalary = recentSalaries[recentSalaries.length - 1].amount
+      salaryGrowthRate = firstSalary > 0 ? ((lastSalary - firstSalary) / firstSalary) * 100 : 0
+    }
+
+    return {
+      salaryTransactions,
+      totalSalaryIncome,
+      averageMonthlySalary,
+      monthsWithSalary: monthsWithSalary.length,
+      salaryByMonth,
+      last6MonthsSalary,
+      salaryGrowthRate,
+      currentMonthSalary: salaryByMonth[`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`] || 0,
+    }
+  }, [income])
+
+  const savingsRate = useMemo(() => {
+    return totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0
+  }, [totalIncome, totalExpenses])
+
+  const totalBalance = useMemo(() => {
+    return wallets.reduce((sum, w) => sum + w.balance, 0)
+  }, [wallets])
+
+  const calculateHealthScore = () => {
+    let score = 70
+
+    if (savingsRate > 20) score += 10
+    else if (savingsRate < 10) score -= 10
+
+    const goalProgress =
+      goals.reduce((sum, goal) => sum + (goal.current_amount / goal.target_amount) * 100, 0) / (goals.length || 1)
+    if (goalProgress > 50) score += 5
+    else if (goalProgress < 20) score -= 5
+
+    if (wallets.length >= 3) score += 5
+
+    const budgetAdherence = budgets.filter((b) => b.percentage <= 100).length / (budgets.length || 1)
+    if (budgetAdherence > 0.8) score += 10
+    else if (budgetAdherence < 0.5) score -= 10
+
+    // Add salary stability bonus
+    if (salaryData.monthsWithSalary >= 3) score += 5
+    if (salaryData.salaryGrowthRate > 0) score += 3
+
+    return Math.min(100, Math.max(0, score))
+  }
+
+  const healthScore = useMemo(
+    () => calculateHealthScore(),
+    [savingsRate, goals, wallets, budgets, transactions, totalIncome, salaryData],
+  )
+
+  const generateSmartSuggestions = (): SmartSuggestion[] => {
+    const suggestions: SmartSuggestion[] = []
+    let suggestionId = 1
+
+    if (transactions.length === 0) {
+      suggestions.push({
+        id: suggestionId++,
+        title: "Start Your Financial Journey",
+        description:
+          "Begin by adding your first transaction to unlock personalized insights and AI-powered recommendations.",
+        priority: "high",
+        effort: "low",
+        category: "Getting Started",
+        icon: Plus,
+        actions: {
+          primary: "Add Transaction",
+          secondary: "Import Data",
+        },
+        timeframe: "Now",
+        impact: 90,
+      })
+      return suggestions
+    }
+
+    const expensesByCategory: Record<string, { amount: number; count: number }> = {}
+    expenses.forEach((transaction: any) => {
+      const categoryName = transaction.categories?.name || "Others"
+      if (!expensesByCategory[categoryName]) {
+        expensesByCategory[categoryName] = { amount: 0, count: 0 }
+      }
+      expensesByCategory[categoryName].amount += Math.abs(transaction.amount)
+      expensesByCategory[categoryName].count += 1
+    })
+
     const sortedCategories = Object.entries(expensesByCategory)
       .sort(([, a], [, b]) => b.amount - a.amount)
-      .slice(0, 3);
+      .slice(0, 3)
 
-    // Suggestion 1: Savings rate improvement
-    if (totalIncome > 0) {
-      const currentSavings = totalIncome - totalExpenses;
-      const recommendedSavings = totalIncome * 0.2; // 20% rule
+    // Salary-based savings suggestion
+    if (salaryData.averageMonthlySalary > 0) {
+      const currentSavings = totalIncome - totalExpenses
+      const recommendedSavings = salaryData.averageMonthlySalary * (aiPreferences.personalization.savingsTarget / 100)
 
       if (currentSavings < recommendedSavings) {
-        const additionalSavingsNeeded = recommendedSavings - currentSavings;
+        const additionalSavingsNeeded = recommendedSavings - currentSavings
         suggestions.push({
           id: suggestionId++,
-          title: "Increase Your Savings Rate",
-          description: `Your current savings rate is ${savingsRate.toFixed(
-            1
-          )}%. Try to save an additional ₱${Math.round(
-            additionalSavingsNeeded
-          ).toLocaleString()} monthly to reach the recommended 20% savings rate.`,
+          title: "Optimize Salary-Based Savings",
+          description: `Based on your average monthly salary of ₱${Math.round(salaryData.averageMonthlySalary).toLocaleString()}, you should save ₱${Math.round(recommendedSavings).toLocaleString()} monthly. You need ₱${Math.round(additionalSavingsNeeded).toLocaleString()} more to reach your ${aiPreferences.personalization.savingsTarget}% target.`,
+          priority: savingsRate < 10 ? "high" : "medium",
+          effort: "medium",
+          category: "Salary Optimization",
+          potentialSavings: Math.round(additionalSavingsNeeded),
+          icon: Calculator,
+          actions: {
+            primary: "Create Salary-Based Plan",
+            secondary: "Learn More",
+          },
+          timeframe: "Monthly",
+          impact: 90,
+        })
+      }
+    }
+
+    if (totalIncome > 0) {
+      const currentSavings = totalIncome - totalExpenses
+      const recommendedSavings = totalIncome * (aiPreferences.personalization.savingsTarget / 100)
+
+      if (currentSavings < recommendedSavings) {
+        const additionalSavingsNeeded = recommendedSavings - currentSavings
+        suggestions.push({
+          id: suggestionId++,
+          title: "Boost Your Savings Rate",
+          description: `Your current savings rate is ${savingsRate.toFixed(1)}%. Save an additional ₱${Math.round(
+            additionalSavingsNeeded,
+          ).toLocaleString()} monthly to reach your ${aiPreferences.personalization.savingsTarget}% target.`,
           priority: savingsRate < 10 ? "high" : "medium",
           effort: "medium",
           category: "Savings",
           potentialSavings: Math.round(additionalSavingsNeeded),
           icon: PiggyBank,
-        });
+          actions: {
+            primary: "Create Savings Plan",
+            secondary: "Learn More",
+          },
+          timeframe: "Monthly",
+          impact: 85,
+        })
       }
     }
 
-    // Suggestion 2: Top spending category optimization
     if (sortedCategories.length > 0) {
-      const [topCategory, topData] = sortedCategories[0];
-      const categoryPercentage = (topData.amount / totalExpenses) * 100;
+      const [topCategory, topData] = sortedCategories[0]
+      const categoryPercentage = (topData.amount / totalExpenses) * 100
 
-      if (categoryPercentage > 30 && topData.amount > 5000) {
-        const potentialSavings = Math.round(topData.amount * 0.15); // 15% reduction
+      if (categoryPercentage > 30 && topData.amount > 1000) {
+        const potentialSavings = Math.round(topData.amount * 0.15)
         suggestions.push({
           id: suggestionId++,
           title: `Optimize ${topCategory} Spending`,
-          description: `${topCategory} accounts for ${categoryPercentage.toFixed(
-            1
-          )}% of your expenses (₱${Math.round(
-            topData.amount
-          ).toLocaleString()}). Consider reducing this by 15% to save ₱${potentialSavings.toLocaleString()} monthly.`,
+          description: `${topCategory} accounts for ${categoryPercentage.toFixed(1)}% of your expenses (₱${Math.round(
+            topData.amount,
+          ).toLocaleString()}). Reduce by 15% to save ₱${potentialSavings.toLocaleString()} monthly.`,
           priority: categoryPercentage > 40 ? "high" : "medium",
           effort: topCategory.toLowerCase().includes("food") ? "low" : "medium",
           category: topCategory,
           potentialSavings,
-          icon: topCategory.toLowerCase().includes("food")
-            ? DollarSign
-            : CreditCard,
-        });
+          icon: topCategory.toLowerCase().includes("food") ? DollarSign : CreditCard,
+          actions: {
+            primary: "Set Category Budget",
+            secondary: "View Details",
+          },
+          timeframe: "Monthly",
+          impact: categoryPercentage > 40 ? 80 : 65,
+        })
       }
     }
 
-    // Suggestion 3: Goal-based suggestions
-    if (goals.length > 0) {
-      const incompleteGoals = goals.filter(
-        (g) => g.current_amount < g.target_amount
-      );
-
-      if (incompleteGoals.length > 0) {
-        const priorityGoal = incompleteGoals.reduce((prev, current) =>
-          current.target_amount - current.current_amount <
-          prev.target_amount - prev.current_amount
-            ? current
-            : prev
-        );
-
-        const remainingAmount =
-          priorityGoal.target_amount - priorityGoal.current_amount;
-        const monthsToComplete = Math.ceil(
-          remainingAmount /
-            (savingsRate > 0 ? (totalIncome * savingsRate) / 100 : 1000)
-        );
-
-        suggestions.push({
-          id: suggestionId++,
-          title: `Accelerate "${priorityGoal.name}" Goal`,
-          description: `You need ₱${Math.round(
-            remainingAmount
-          ).toLocaleString()} more to complete this goal. At your current savings rate, it will take ${monthsToComplete} months. Consider allocating ₱${Math.round(
-            remainingAmount / 6
-          ).toLocaleString()} monthly to complete it in 6 months.`,
-          priority: "medium",
-          effort: "low",
-          category: "Goals",
-          potentialSavings: Math.round(remainingAmount / 6),
-          icon: Target,
-        });
-      }
-    } else {
-      // Suggest creating goals if none exist
+    if (goals.length === 0) {
       suggestions.push({
         id: suggestionId++,
-        title: "Set Financial Goals",
+        title: "Set Your First Financial Goal",
         description:
-          "You haven't set any financial goals yet. Creating specific goals like an emergency fund or vacation savings can help you stay motivated and track progress.",
+          "Goals provide direction and motivation. Start with an emergency fund or a specific savings target to track your progress.",
         priority: "medium",
         effort: "low",
         category: "Planning",
         icon: Target,
-      });
+        actions: {
+          primary: "Create Goal",
+          secondary: "See Templates",
+        },
+        timeframe: "Today",
+        impact: 75,
+      })
     }
 
-    // Suggestion 4: Wallet optimization
-    if (wallets.length > 1) {
-      const walletsWithBalance = wallets.filter((w) => w.balance > 0);
-      const totalWalletBalance = walletsWithBalance.reduce(
-        (sum, w) => sum + w.balance,
-        0
-      );
-
-      if (walletsWithBalance.length > 2 && totalWalletBalance > 10000) {
-        suggestions.push({
-          id: suggestionId++,
-          title: "Consolidate Wallet Balances",
-          description: `You have ₱${Math.round(
-            totalWalletBalance
-          ).toLocaleString()} spread across ${
-            walletsWithBalance.length
-          } wallets. Consider consolidating smaller balances into your main wallet for better tracking and potential higher interest earnings.`,
-          priority: "low",
-          effort: "low",
-          category: "Organization",
-          icon: CreditCard,
-        });
-      }
-    }
-
-    // Suggestion 5: Emergency fund check
-    const emergencyFundGoal = goals.find((g) =>
-      g.name.toLowerCase().includes("emergency")
-    );
-    const recommendedEmergencyFund = totalExpenses * 3; // 3 months of expenses
+    const emergencyFundGoal = goals.find((g) => g.name.toLowerCase().includes("emergency"))
+    const recommendedEmergencyFund = totalExpenses * 3
 
     if (!emergencyFundGoal && totalExpenses > 0) {
       suggestions.push({
         id: suggestionId++,
-        title: "Create Emergency Fund",
-        description: `Build an emergency fund of ₱${Math.round(
-          recommendedEmergencyFund
-        ).toLocaleString()} (3 months of expenses). Start with ₱${Math.round(
-          recommendedEmergencyFund / 12
-        ).toLocaleString()} monthly to build it over a year.`,
+        title: "Build Emergency Fund",
+        description: `Create a safety net of ₱${Math.round(
+          recommendedEmergencyFund,
+        ).toLocaleString()} (3 months expenses). Start with ₱${Math.round(
+          recommendedEmergencyFund / 12,
+        ).toLocaleString()} monthly.`,
         priority: "high",
         effort: "medium",
         category: "Emergency Planning",
         potentialSavings: Math.round(recommendedEmergencyFund / 12),
-        icon: AlertTriangle,
-      });
+        icon: Shield,
+        actions: {
+          primary: "Start Emergency Fund",
+          secondary: "Learn More",
+        },
+        timeframe: "12 months",
+        impact: 90,
+      })
     }
 
-    // Suggestion 6: Spending pattern analysis
-    if (expenses.length > 10) {
-      const recentExpenses = expenses.slice(-30); // Last 30 transactions
-      const avgDailySpending =
-        recentExpenses.reduce((sum, t) => sum + Math.abs(t.amount), 0) / 30;
-      const projectedMonthlySpending = avgDailySpending * 30;
-
-      if (projectedMonthlySpending > totalExpenses * 1.1) {
-        // 10% higher than average
-        suggestions.push({
-          id: suggestionId++,
-          title: "Monitor Recent Spending Increase",
-          description: `Your recent spending pattern shows ₱${Math.round(
-            avgDailySpending
-          ).toLocaleString()} daily average, which projects to ₱${Math.round(
-            projectedMonthlySpending
-          ).toLocaleString()} monthly. This is higher than your usual spending. Review recent transactions for any unusual expenses.`,
-          priority: "medium",
-          effort: "low",
-          category: "Monitoring",
-          icon: TrendingUp,
-        });
-      }
-    }
-
-    // Suggestion 7: Subscription audit (if many small recurring expenses)
-    const smallExpenses = expenses.filter(
-      (t) => Math.abs(t.amount) < 1000 && Math.abs(t.amount) > 100
-    );
-    if (smallExpenses.length > 10) {
-      const totalSmallExpenses = smallExpenses.reduce(
-        (sum, t) => sum + Math.abs(t.amount),
-        0
-      );
+    if (savingsRate > 25 && totalBalance > 50000) {
       suggestions.push({
         id: suggestionId++,
-        title: "Audit Small Recurring Expenses",
-        description: `You have ${
-          smallExpenses.length
-        } small expenses totaling ₱${Math.round(
-          totalSmallExpenses
-        ).toLocaleString()}. Review these for subscriptions or services you might not need. Canceling just a few could save ₱${Math.round(
-          totalSmallExpenses * 0.2
-        ).toLocaleString()} monthly.`,
-        priority: "low",
-        effort: "low",
-        category: "Subscriptions",
-        potentialSavings: Math.round(totalSmallExpenses * 0.2),
-        icon: Calendar,
-      });
+        title: "Investment Opportunity",
+        description: `With ${savingsRate.toFixed(1)}% savings rate and ₱${Math.round(totalBalance).toLocaleString()} balance, consider investing for long-term growth.`,
+        priority: "medium",
+        effort: "medium",
+        category: "Investments",
+        icon: TrendingUp,
+        actions: {
+          primary: "Explore Investments",
+          secondary: "Risk Assessment",
+        },
+        timeframe: "Next month",
+        impact: 80,
+      })
     }
 
-    return suggestions.slice(0, 6); // Return top 6 suggestions
-  };
-
-  useEffect(() => {
-    if (!transactionsLoading && !walletsLoading && !goalsLoading) {
-      generateInsights();
-      setSmartSuggestions(generateSmartSuggestions());
-    }
-  }, [
-    transactionsLoading,
-    walletsLoading,
-    goalsLoading,
-    transactions,
-    wallets,
-    goals,
-  ]);
+    return suggestions.slice(0, 6)
+  }
 
   const generateInsights = () => {
-    const generatedInsights = [];
+    const generatedInsights = []
 
-    // Group expenses by category
-    const expensesByCategory: Record<string, number> = {};
-    expenses.forEach((transaction: any) => {
-      const categoryName = transaction.categories?.name || "Others";
-      if (!expensesByCategory[categoryName]) {
-        expensesByCategory[categoryName] = 0;
-      }
-      expensesByCategory[categoryName] += Math.abs(transaction.amount);
-    });
-
-    // Find top expense category
-    let topCategory = "None";
-    let topAmount = 0;
-    Object.entries(expensesByCategory).forEach(([category, amount]) => {
-      if (amount > topAmount) {
-        topCategory = category;
-        topAmount = amount as number;
-      }
-    });
-
-    // Add insights based on data
-    if (savingsRate < 20 && totalIncome > 0) {
+    if (transactions.length === 0) {
       generatedInsights.push({
         id: 1,
+        type: "getting_started",
+        title: "Welcome to AI Insights! 🎉",
+        description:
+          "Start by adding transactions to unlock personalized financial insights and smart recommendations.",
+        impact: "info",
+        category: "Getting Started",
+        icon: Lightbulb,
+        color: "blue",
+        actions: ["Add Transaction", "Import Data"],
+      })
+      setInsights(generatedInsights)
+      return
+    }
+
+    // Salary-specific insights
+    if (salaryData.averageMonthlySalary > 0) {
+      generatedInsights.push({
+        id: 1,
+        type: "salary_insight",
+        title: "Salary Analysis 💰",
+        description: `Your average monthly salary is ₱${Math.round(salaryData.averageMonthlySalary).toLocaleString()} based on ${salaryData.monthsWithSalary} months of data. ${salaryData.salaryGrowthRate > 0 ? `Your salary has grown by ${salaryData.salaryGrowthRate.toFixed(1)}% over time.` : salaryData.salaryGrowthRate < 0 ? `Your salary has decreased by ${Math.abs(salaryData.salaryGrowthRate).toFixed(1)}% recently.` : "Your salary has remained stable."}`,
+        impact: "info",
+        category: "Salary",
+        icon: Calculator,
+        color: "green",
+        actions: ["View Salary Trends", "Optimize Savings"],
+        recommendation: `Based on your salary, aim to save ₱${Math.round(salaryData.averageMonthlySalary * 0.2).toLocaleString()} monthly (20% rule).`,
+      })
+    }
+
+    const expensesByCategory: Record<string, number> = {}
+    expenses.forEach((transaction: any) => {
+      const categoryName = transaction.categories?.name || "Others"
+      if (!expensesByCategory[categoryName]) {
+        expensesByCategory[categoryName] = 0
+      }
+      expensesByCategory[categoryName] += Math.abs(transaction.amount)
+    })
+
+    let topCategory = "None"
+    let topAmount = 0
+    Object.entries(expensesByCategory).forEach(([category, amount]) => {
+      if (amount > topAmount) {
+        topCategory = category
+        topAmount = amount as number
+      }
+    })
+
+    if (savingsRate < 20 && totalIncome > 0) {
+      generatedInsights.push({
+        id: 2,
         type: "spending_alert",
-        title: "Low Savings Rate",
+        title: "Savings Rate Below Target 📉",
         description: `Your current savings rate is ${savingsRate.toFixed(
-          1
-        )}%. Financial experts recommend saving at least 20% of your income.`,
+          1,
+        )}%. Financial experts recommend saving at least 20% of your income for long-term financial health.`,
         impact: "high",
         category: "Savings",
         icon: AlertTriangle,
         color: "red",
-      });
+        actions: ["Create Savings Plan", "View Tips"],
+        recommendation: `Try to save an additional ₱${Math.round(totalIncome * 0.2 - (totalIncome - totalExpenses)).toLocaleString()} monthly to reach the 20% target.`,
+      })
     }
 
     if (topCategory !== "None" && totalExpenses > 0) {
-      const percentage = (topAmount / totalExpenses) * 100;
+      const percentage = (topAmount / totalExpenses) * 100
       if (percentage > 40) {
         generatedInsights.push({
-          id: 2,
+          id: 3,
           type: "spending_alert",
-          title: `High ${topCategory} Spending`,
+          title: `High ${topCategory} Spending 🔍`,
           description: `${topCategory} makes up ${percentage.toFixed(
-            1
-          )}% of your total expenses. Consider reviewing this category for potential savings.`,
+            1,
+          )}% of your total expenses (₱${Math.round(topAmount).toLocaleString()}). This might be an area for optimization.`,
           impact: "medium",
           category: topCategory,
           icon: AlertTriangle,
           color: "yellow",
-        });
+          actions: ["Set Budget", "View Details"],
+          recommendation: `Consider reducing ${topCategory} spending by 10-15% to free up ₱${Math.round(topAmount * 0.125).toLocaleString()} monthly.`,
+        })
       }
     }
 
     if (goals.length > 0) {
       const onTrackGoals = goals.filter((g) => {
-        const progress = (g.current_amount / g.target_amount) * 100;
-        return progress >= 50;
-      });
+        const progress = (g.current_amount / g.target_amount) * 100
+        return progress >= 50
+      })
 
       if (onTrackGoals.length > 0) {
         generatedInsights.push({
-          id: 3,
+          id: 4,
           type: "goal_progress",
-          title: "Goals On Track",
-          description: `You're making good progress on ${onTrackGoals.length} of your financial goals. Keep up the good work!`,
+          title: "Goals On Track! 🎯",
+          description: `You're making excellent progress on ${onTrackGoals.length} of your financial goals. Keep up the momentum!`,
           impact: "positive",
           category: "Goals",
           icon: CheckCircle,
           color: "green",
-        });
+          actions: ["View Progress", "Adjust Timeline"],
+          recommendation: `Consider increasing contributions to accelerate your timeline or set new stretch goals.`,
+        })
       }
     }
 
-    if (wallets.length > 1) {
-      const highestBalanceWallet = wallets.reduce((prev, current) =>
-        prev.balance > current.balance ? prev : current
-      );
-      generatedInsights.push({
-        id: 4,
-        type: "optimization",
-        title: "Wallet Optimization",
-        description: `Your ${highestBalanceWallet.name} has the highest balance. Consider consolidating funds for better management.`,
-        impact: "medium",
-        category: "Optimization",
-        icon: TrendingUp,
-        color: "blue",
-      });
+    if (budgets.length > 0) {
+      const exceededBudgets = budgets.filter((b) => b.percentage > 100)
+      if (exceededBudgets.length > 0) {
+        generatedInsights.push({
+          id: 5,
+          type: "budget_alert",
+          title: "Budget Alert! ⚠️",
+          description: `You've exceeded ${exceededBudgets.length} budget${exceededBudgets.length > 1 ? "s" : ""}. Time to review and adjust your spending in these categories.`,
+          impact: "high",
+          category: "Budgeting",
+          icon: AlertTriangle,
+          color: "red",
+          actions: ["View Budgets", "Adjust Limits"],
+          recommendation: `Review your spending patterns and consider increasing budget limits or reducing expenses in these categories.`,
+        })
+      }
     }
 
-    setInsights(generatedInsights);
-  };
+    if (savingsRate > 25 && totalBalance > 50000) {
+      generatedInsights.push({
+        id: 6,
+        type: "investment_opportunity",
+        title: "Investment Opportunity! 📈",
+        description: `With a ${savingsRate.toFixed(1)}% savings rate and ₱${Math.round(totalBalance).toLocaleString()} balance, you're in a great position to start investing for long-term growth.`,
+        impact: "positive",
+        category: "Investments",
+        icon: TrendingUp,
+        color: "green",
+        actions: ["Explore Options", "Risk Assessment"],
+        recommendation: `Consider investing 10-20% of your balance in diversified funds or index funds for long-term wealth building.`,
+      })
+    }
+
+    // Monthly comparison insight
+    if (expenses.length > 10) {
+      const lastMonth = new Date()
+      lastMonth.setMonth(lastMonth.getMonth() - 1)
+
+      const currentMonthExpenses = expenses.filter((t) => {
+        const date = new Date(t.date)
+        return date.getMonth() === new Date().getMonth() && date.getFullYear() === new Date().getFullYear()
+      })
+
+      const lastMonthExpenses = expenses.filter((t) => {
+        const date = new Date(t.date)
+        return date.getMonth() === lastMonth.getMonth() && date.getFullYear() === lastMonth.getFullYear()
+      })
+
+      const currentTotal = currentMonthExpenses.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+      const lastTotal = lastMonthExpenses.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+
+      if (lastTotal > 0) {
+        const changePercent = ((currentTotal - lastTotal) / lastTotal) * 100
+        if (Math.abs(changePercent) > 15) {
+          generatedInsights.push({
+            id: 7,
+            type: "spending_trend",
+            title: `Spending ${changePercent > 0 ? "Increased" : "Decreased"} 📊`,
+            description: `Your spending this month is ${Math.abs(changePercent).toFixed(1)}% ${changePercent > 0 ? "higher" : "lower"} than last month (₱${Math.round(Math.abs(currentTotal - lastTotal)).toLocaleString()} difference).`,
+            impact: changePercent > 0 ? "medium" : "positive",
+            category: "Trends",
+            icon: changePercent > 0 ? TrendingUp : TrendingDown,
+            color: changePercent > 0 ? "yellow" : "green",
+            actions: ["Compare Details", "Set Alert"],
+            recommendation:
+              changePercent > 0
+                ? "Review recent transactions to identify any unusual expenses or spending patterns."
+                : "Great job on reducing expenses! Consider allocating the savings to your goals.",
+          })
+        }
+      }
+    }
+
+    setInsights(generatedInsights)
+  }
+
+  useEffect(() => {
+    if (!transactionsLoading && !walletsLoading && !goalsLoading && !budgetsLoading && !categoriesLoading) {
+      generateInsights()
+      setSmartSuggestions(generateSmartSuggestions())
+    }
+  }, [
+    transactionsLoading,
+    walletsLoading,
+    goalsLoading,
+    budgetsLoading,
+    categoriesLoading,
+    transactions,
+    wallets,
+    goals,
+    budgets,
+    categories,
+    aiPreferences,
+    salaryData,
+  ])
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [chatHistory, isLoading])
 
   const handleSendMessage = async () => {
-    if (!chatMessage.trim()) return;
+    if (!chatMessage.trim()) return
 
-    const userMessage = {
+    const userMessage: ChatMessage = {
       id: chatHistory.length + 1,
       type: "user",
       message: chatMessage,
       timestamp: new Date().toISOString(),
-    };
+    }
 
-    setChatHistory((prev) => [...prev, userMessage]);
-    setChatMessage("");
-    setIsLoading(true);
+    setChatHistory((prev) => [...prev, userMessage])
+    const currentMessage = chatMessage
+    setChatMessage("")
+    setIsLoading(true)
 
     try {
+      const financialData: any = {
+        monthlyIncome: aiPreferences.dataAccess.transactions ? monthlyIncome : null,
+        monthlyExpenses: aiPreferences.dataAccess.transactions ? monthlyExpenses : null,
+        monthlySavings: aiPreferences.dataAccess.transactions ? monthlySavings : null,
+        totalIncome: aiPreferences.dataAccess.transactions ? totalIncome : null,
+        totalExpenses: aiPreferences.dataAccess.transactions ? totalExpenses : null,
+        totalBalance: aiPreferences.dataAccess.wallets ? totalBalance : null,
+        savingsRate: aiPreferences.dataAccess.transactions ? savingsRate : null,
+        goals: aiPreferences.dataAccess.goals ? goals.length : null,
+        wallets: aiPreferences.dataAccess.wallets ? wallets.length : null,
+        budgets: aiPreferences.dataAccess.budgets ? budgets.length : null,
+        riskTolerance: aiPreferences.personalization.riskTolerance,
+        financialGoals: aiPreferences.personalization.financialGoals,
+        savingsTarget: aiPreferences.personalization.savingsTarget,
+        // Enhanced salary data
+        averageMonthlySalary: salaryData.averageMonthlySalary,
+        currentMonthSalary: salaryData.currentMonthSalary,
+        salaryGrowthRate: salaryData.salaryGrowthRate,
+        monthsWithSalaryData: salaryData.monthsWithSalary,
+        salaryStability: salaryData.monthsWithSalary >= 3 ? "stable" : "irregular",
+        last6MonthsSalary: salaryData.last6MonthsSalary,
+      }
+
+      if (aiPreferences.dataAccess.categories && aiPreferences.dataAccess.transactions) {
+        financialData.topCategories = Object.entries(
+          expenses.reduce((acc: Record<string, number>, t: any) => {
+            const cat = t.categories?.name || "Others"
+            acc[cat] = (acc[cat] || 0) + Math.abs(t.amount)
+            return acc
+          }, {}),
+        )
+          .sort(([, a], [, b]) => (b as number) - (a as number))
+          .slice(0, 3)
+      }
+
       const response = await fetch("/api/ai-suggestions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          userQuery: chatMessage,
-          financialData: {
-            monthlyIncome,
-            monthlyExpenses,
-            monthlySavings,
-            totalIncome,
-            totalExpenses,
-            totalBalance,
-            savingsRate,
-            goals: goals.length,
-            wallets: wallets.length,
-            topCategories: Object.entries(
-              expenses.reduce((acc: Record<string, number>, t: any) => {
-                const cat = t.categories?.name || "Others";
-                acc[cat] = (acc[cat] || 0) + Math.abs(t.amount);
-                return acc;
-              }, {})
-            )
-              .sort(([, a], [, b]) => (b as number) - (a as number))
-              .slice(0, 3),
+          userQuery: currentMessage,
+          financialData,
+          preferences: {
+            insights: aiPreferences.insights,
+            personalization: aiPreferences.personalization,
           },
+          conversationHistory: chatHistory.slice(-5),
         }),
-      });
+      })
 
-      const data = await response.json();
-      console.log(data.suggestion);
+      const data = await response.json()
 
-      const aiResponse = {
+      const aiResponse: ChatMessage = {
         id: chatHistory.length + 2,
         type: "ai",
-        message:
-          data.suggestion ||
-          "I'm sorry, I couldn't generate a response at the moment. Please try again.",
+        message: data.suggestion || "I'm sorry, I couldn't generate a response at the moment. Please try again.",
         timestamp: new Date().toISOString(),
-      };
+        isHypothetical: data.isHypothetical || false,
+        dataUsed: data.dataUsed || "actual",
+      }
 
-      setChatHistory((prev) => [...prev, aiResponse]);
+      setChatHistory((prev) => [...prev, aiResponse])
+
+      if (data.isHypothetical) {
+        toast({
+          title: "Hypothetical Scenario",
+          description: "I've analyzed your hypothetical situation using the numbers you provided.",
+        })
+      }
     } catch (error) {
-      console.error("AI chat error:", error);
-      const errorResponse = {
+      console.error("AI chat error:", error)
+      const errorResponse: ChatMessage = {
         id: chatHistory.length + 2,
         type: "ai",
-        message: generateAIResponse(chatMessage),
+        message: generateEnhancedFallbackResponse(currentMessage),
         timestamp: new Date().toISOString(),
-      };
-      setChatHistory((prev) => [...prev, errorResponse]);
+      }
+      setChatHistory((prev) => [...prev, errorResponse])
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
-  const generateAIResponse = (message: string) => {
-    const lowerMessage = message.toLowerCase();
+  const generateEnhancedFallbackResponse = (message: string): string => {
+    const lowerMessage = message.toLowerCase()
+    const isHypothetical = detectHypotheticalScenario(message)
+    const dataToUse = isHypothetical ? extractHypotheticalData(message) : { totalBalance, totalIncome, totalExpenses }
 
-    if (lowerMessage.includes("budget") || lowerMessage.includes("spending")) {
-      return `Based on your data, your total expenses are ₱${totalExpenses.toLocaleString()}. Your highest spending categories are ${
-        insights[0]?.category || "Food"
-      } and ${
-        insights[1]?.category || "Transportation"
-      }. I recommend setting a monthly budget for each category to better control your spending.`;
+    const {
+      totalIncome: incomeValue = 0,
+      totalExpenses: expensesValue = 0,
+      totalBalance: balanceValue = 0,
+      hypotheticalBalance,
+      savingsRate: savingsRateValue = 0,
+    } = dataToUse
+
+    const workingBalance = hypotheticalBalance || balanceValue
+
+    if (lowerMessage.includes("allocate") || lowerMessage.includes("50/30/20") || lowerMessage.includes("balance")) {
+      return `${isHypothetical ? `🎯 For your hypothetical balance of ₱${workingBalance.toLocaleString()}` : `💰 With your current balance of ₱${workingBalance.toLocaleString()}`}, here's a smart allocation:
+
+**🏦 PRIORITY-BASED ALLOCATION:**
+
+• **Emergency Fund (40%)**: ₱${Math.round(workingBalance * 0.4).toLocaleString()}
+  Keep in high-yield savings (CIMB, ING, or BPI Save-Up)
+
+• **Goal Progress (30%)**: ₱${Math.round(workingBalance * 0.3).toLocaleString()}
+  Add to your highest priority financial goal
+
+• **Next Month Buffer (20%)**: ₱${Math.round(workingBalance * 0.2).toLocaleString()}
+  Keep in your main spending account for peace of mind
+
+• **Growth Investment (10%)**: ₱${Math.round(workingBalance * 0.1).toLocaleString()}
+  Consider UITF, mutual funds, or time deposits
+
+**🚀 NEXT STEPS:**
+1. Open separate savings account for emergency fund
+2. Set up automatic goal contributions
+3. Research investment options at your bank`
     }
 
-    if (lowerMessage.includes("save") || lowerMessage.includes("goal")) {
-      return `You currently have ${
-        goals.length
-      } financial goals set up. Your total savings are ₱${(
-        totalIncome - totalExpenses
-      ).toLocaleString()}. To optimize your savings: 1) Automate transfers to avoid spending temptation, 2) Consider the 50/30/20 rule, and 3) Review and increase savings by 1% each month.`;
+    return `💼 **FINANCIAL SNAPSHOT** ${isHypothetical ? "(Hypothetical)" : ""}
+
+• **Balance**: ₱${workingBalance.toLocaleString()}
+• **Average Monthly Salary**: ₱${Math.round(salaryData.averageMonthlySalary).toLocaleString()}
+• **Savings Rate**: ${savingsRateValue.toFixed(1)}%
+
+**🎯 SALARY-BASED RECOMMENDATIONS:**
+1. **Emergency Fund**: Aim for ₱${Math.round(salaryData.averageMonthlySalary * 3).toLocaleString()} (3 months salary)
+2. **Monthly Savings**: Save ₱${Math.round(salaryData.averageMonthlySalary * 0.2).toLocaleString()} (20% of salary)
+3. **Investment**: Consider ₱${Math.round(salaryData.averageMonthlySalary * 0.1).toLocaleString()} monthly for long-term growth
+
+What specific area would you like me to dive deeper into?`
+  }
+
+  const detectHypotheticalScenario = (query: string): boolean => {
+    const hypotheticalKeywords = [
+      "what if",
+      "if my",
+      "suppose",
+      "assuming",
+      "hypothetically",
+      "let's say",
+      "imagine",
+      "if i had",
+      "if i have",
+      "if my balance",
+      "if my income",
+    ]
+
+    return hypotheticalKeywords.some((keyword) => query.toLowerCase().includes(keyword.toLowerCase()))
+  }
+
+  const extractHypotheticalData = (query: string): any => {
+    const hypotheticalData = { totalBalance, totalIncome, totalExpenses }
+
+    const balanceMatch = query.match(/balance.*?(\d+(?:,\d{3})*)/i)
+    if (balanceMatch) {
+      const amount = Number.parseInt(balanceMatch[1].replace(/,/g, ""))
+      hypotheticalData.totalBalance = amount
+      hypotheticalData.hypotheticalBalance = amount
     }
 
-    if (
-      lowerMessage.includes("investment") ||
-      lowerMessage.includes("invest")
-    ) {
-      return `You have ₱${totalBalance.toLocaleString()} across ${
-        wallets.length
-      } wallets. For investments, consider: 1) Moving some funds to a high-yield savings account for better returns, 2) Starting with low-risk index funds if you're new to investing, 3) Diversifying across different asset classes. Always invest only what you can afford to lose and maintain your emergency fund first.`;
+    const incomeMatch = query.match(/income.*?(\d+(?:,\d{3})*)/i)
+    if (incomeMatch) {
+      const amount = Number.parseInt(incomeMatch[1].replace(/,/g, ""))
+      hypotheticalData.totalIncome = amount
     }
 
-    return `I understand you're asking about your finances. Based on your current data, you have ₱${totalBalance.toLocaleString()} total balance across ${
-      wallets.length
-    } wallets. Your monthly savings rate is ${
-      totalIncome > 0
-        ? (((totalIncome - totalExpenses) / totalIncome) * 100).toFixed(1)
-        : 0
-    }%. Is there a specific area you'd like me to analyze deeper - spending patterns, savings optimization, or goal planning?`;
-  };
+    return hypotheticalData
+  }
+
+  const handleRefreshInsights = () => {
+    setRefreshing(true)
+    setTimeout(() => {
+      generateInsights()
+      setSmartSuggestions(generateSmartSuggestions())
+      setRefreshing(false)
+      toast({
+        title: "Insights Refreshed",
+        description: "Your financial insights have been updated with the latest data.",
+      })
+    }, 1000)
+  }
+
+  const handleFeedback = (id: number, type: "like" | "dislike") => {
+    setFeedbackGiven((prev) => ({
+      ...prev,
+      [id]: type,
+    }))
+
+    toast({
+      title: type === "like" ? "Feedback Received" : "Feedback Noted",
+      description:
+        type === "like"
+          ? "Thanks! We'll show more insights like this."
+          : "Thanks for your feedback. We'll improve our suggestions.",
+    })
+  }
+
+  const handleBookmarkMessage = (id: number) => {
+    setBookmarkedMessages((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
+
+    setChatHistory((prev) => prev.map((msg) => (msg.id === id ? { ...msg, isBookmarked: !msg.isBookmarked } : msg)))
+
+    toast({
+      title: bookmarkedMessages.has(id) ? "Bookmark Removed" : "Message Bookmarked",
+      description: bookmarkedMessages.has(id) ? "Message removed from bookmarks" : "Message saved to bookmarks",
+    })
+  }
+
+  const handleLikeMessage = (id: number) => {
+    setLikedMessages((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
+
+    setChatHistory((prev) => prev.map((msg) => (msg.id === id ? { ...msg, isLiked: !msg.isLiked } : msg)))
+
+    toast({
+      title: likedMessages.has(id) ? "Like Removed" : "Message Liked",
+      description: likedMessages.has(id) ? "Like removed" : "Thanks for the feedback!",
+    })
+  }
+
+  const handleCopyMessage = (message: string) => {
+    navigator.clipboard.writeText(message)
+    toast({
+      title: "Copied to Clipboard",
+      description: "Message copied successfully",
+    })
+  }
+
+  const handleQuickAction = (action: string) => {
+    setChatMessage(action)
+    textareaRef.current?.focus()
+  }
+
+  const toggleInsightExpansion = (id: number) => {
+    setExpandedInsights((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
 
   const getInsightIcon = (insight: any) => {
-    const IconComponent = insight.icon;
-    return <IconComponent className={`w-5 h-5 text-${insight.color}-600`} />;
-  };
+    const IconComponent = insight.icon
+    return <IconComponent className={`w-5 h-5 text-${insight.color}-600 dark:text-${insight.color}-400`} />
+  }
 
   const getImpactBadge = (impact: string) => {
     switch (impact) {
       case "high":
-        return <Badge variant="destructive">High</Badge>;
+        return (
+          <Badge variant="destructive" className="text-xs">
+            High Impact
+          </Badge>
+        )
       case "medium":
-        return <Badge variant="default">Medium</Badge>;
+        return (
+          <Badge variant="default" className="text-xs">
+            Medium Impact
+          </Badge>
+        )
       case "positive":
         return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100 text-xs">
             Positive
           </Badge>
-        );
+        )
+      case "info":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-100 text-xs">
+            Info
+          </Badge>
+        )
       default:
-        return <Badge variant="secondary">Low</Badge>;
+        return (
+          <Badge variant="secondary" className="text-xs">
+            Low Impact
+          </Badge>
+        )
     }
-  };
+  }
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case "high":
-        return <Badge variant="destructive">High</Badge>;
+        return (
+          <Badge variant="destructive" className="text-xs">
+            High
+          </Badge>
+        )
       case "medium":
-        return <Badge variant="default">Medium</Badge>;
+        return (
+          <Badge variant="default" className="text-xs">
+            Medium
+          </Badge>
+        )
       default:
-        return <Badge variant="secondary">Low</Badge>;
+        return (
+          <Badge variant="secondary" className="text-xs">
+            Low
+          </Badge>
+        )
     }
-  };
+  }
 
   const getEffortBadge = (effort: string) => {
     switch (effort) {
       case "high":
         return (
-          <Badge variant="outline" className="text-red-600 border-red-200">
+          <Badge
+            variant="outline"
+            className="text-red-600 border-red-200 dark:text-red-400 dark:border-red-800 text-xs"
+          >
             High Effort
           </Badge>
-        );
+        )
       case "medium":
         return (
           <Badge
             variant="outline"
-            className="text-yellow-600 border-yellow-200"
+            className="text-yellow-600 border-yellow-200 dark:text-yellow-400 dark:border-yellow-800 text-xs"
           >
             Medium Effort
           </Badge>
-        );
+        )
       default:
         return (
-          <Badge variant="outline" className="text-green-600 border-green-200">
+          <Badge
+            variant="outline"
+            className="text-green-600 border-green-200 dark:text-green-400 dark:border-green-800 text-xs"
+          >
             Low Effort
           </Badge>
-        );
+        )
     }
-  };
+  }
 
-  if (transactionsLoading || walletsLoading || goalsLoading) {
+  const getHealthScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-600 dark:text-green-400"
+    if (score >= 60) return "text-yellow-600 dark:text-yellow-400"
+    return "text-red-600 dark:text-red-400"
+  }
+
+  const getHealthScoreDescription = (score: number) => {
+    if (score >= 80) return "Excellent financial health! 🌟"
+    if (score >= 60) return "Good financial health 👍"
+    return "Needs improvement 📈"
+  }
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth")
+    }
+  }, [user, authLoading, router])
+
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading AI insights...</p>
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading AI insights...</p>
         </div>
       </div>
-    );
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
+  if (transactionsLoading || walletsLoading || goalsLoading || budgetsLoading || categoriesLoading) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Analyzing your financial data...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="sm:max-w-7xl lg:max-w-full mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg">
-            <Bot className="w-8 h-8 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              AI Financial Insights
-            </h1>
-            <p className="text-gray-600">
-              Get personalized recommendations and smart financial advice
-            </p>
+    <div className="min-h-screen bg-background">
+      {/* Mobile-optimized header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+                <Brain className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">AI Insights</h1>
+                <p className="text-xs text-muted-foreground">Powered by AI</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleRefreshInsights} disabled={refreshing}>
+                <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowPreferences(!showPreferences)}>
+                <Settings className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Insights */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Key Insights */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
-                  Key Insights
-                </CardTitle>
-                <CardDescription>
-                  AI-powered analysis of your financial patterns
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {insights.length > 0 ? (
-                    insights.map((insight) => (
-                      <div
-                        key={insight.id}
-                        className="p-4 rounded-lg border hover:bg-muted transition-colors"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`p-2 rounded-full bg-${insight.color}-100`}
-                          >
-                            {getInsightIcon(insight)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold">{insight.title}</h3>
-                              {getImpactBadge(insight.impact)}
-                            </div>
-                            <p className="text-gray-600 text-sm mb-2">
-                              {insight.description}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm">
-                              <Badge variant="outline">
-                                {insight.category}
-                              </Badge>
-                              {insight.savings && (
-                                <span className="text-green-600 font-medium">
-                                  Potential savings: ₱
-                                  {insight.savings.toLocaleString()}
-                                </span>
-                              )}
-                            </div>
+      <div className="p-4 space-y-6">
+        {/* Financial Health Score - Mobile optimized */}
+        <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-blue-200 dark:border-blue-800">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <span className="font-semibold text-foreground">Financial Health</span>
+              </div>
+              <div className={`text-2xl font-bold ${getHealthScoreColor(healthScore)}`}>{healthScore}/100</div>
+            </div>
+            <Progress
+              value={healthScore}
+              className="h-2 mb-2"
+              indicatorClassName={`${
+                healthScore >= 80 ? "bg-green-500" : healthScore >= 60 ? "bg-yellow-500" : "bg-red-500"
+              }`}
+            />
+            <p className="text-sm text-muted-foreground">{getHealthScoreDescription(healthScore)}</p>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced Quick Stats - Mobile grid with salary data */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="bg-card border-border">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Calculator className="w-4 h-4 text-green-600" />
+                <span className="text-xs font-medium text-muted-foreground">Avg Monthly Salary</span>
+              </div>
+              <div className="text-lg font-bold text-foreground">
+                ₱{Math.round(salaryData.averageMonthlySalary).toLocaleString()}
+              </div>
+              <div className="text-xs text-muted-foreground">{salaryData.monthsWithSalary} months data</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <PiggyBank className="w-4 h-4 text-green-600" />
+                <span className="text-xs font-medium text-muted-foreground">Savings Rate</span>
+              </div>
+              <div className="text-lg font-bold text-foreground">{savingsRate.toFixed(1)}%</div>
+              <div className="text-xs text-muted-foreground">
+                {salaryData.salaryGrowthRate > 0
+                  ? `+${salaryData.salaryGrowthRate.toFixed(1)}% growth`
+                  : salaryData.salaryGrowthRate < 0
+                    ? `${salaryData.salaryGrowthRate.toFixed(1)}% decline`
+                    : "Stable"}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Wallet className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-medium text-muted-foreground">Total Balance</span>
+              </div>
+              <div className="text-lg font-bold text-foreground">₱{totalBalance.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Target className="w-4 h-4 text-purple-600" />
+                <span className="text-xs font-medium text-muted-foreground">This Month Salary</span>
+              </div>
+              <div className="text-lg font-bold text-foreground">
+                ₱{Math.round(salaryData.currentMonthSalary).toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Mobile-optimized tabs */}
+        <Tabs defaultValue="insights" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 h-12">
+            <TabsTrigger value="insights" className="text-xs">
+              <Sparkles className="w-4 h-4 mr-1" />
+              Insights
+            </TabsTrigger>
+            <TabsTrigger value="suggestions" className="text-xs">
+              <Lightbulb className="w-4 h-4 mr-1" />
+              Tips
+            </TabsTrigger>
+            <TabsTrigger value="assistant" className="text-xs">
+              <MessageSquare className="w-4 h-4 mr-1" />
+              Chat
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Insights Tab - Mobile optimized */}
+          <TabsContent value="insights" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Key Insights</h2>
+              <Select value={insightFilter} onValueChange={setInsightFilter}>
+                <SelectTrigger className="w-32 h-8 text-xs">
+                  <Filter className="w-3 h-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="high_impact">High Impact</SelectItem>
+                  <SelectItem value="positive">Positive</SelectItem>
+                  <SelectItem value="alerts">Alerts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              {insights.map((insight) => (
+                <Card key={insight.id} className="overflow-hidden bg-card border-border">
+                  <CardHeader className={`bg-card pb-3`}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2 flex-1">
+                        <div className={`p-2 rounded-full bg-${insight.color}-100 dark:bg-${insight.color}-800`}>
+                          {getInsightIcon(insight)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-sm font-semibold text-foreground leading-tight">
+                            {insight.title}
+                          </CardTitle>
+                          <div className="flex items-center gap-2 mt-1">
+                            {getImpactBadge(insight.impact)}
+                            <Badge variant="outline" className="text-xs">
+                              {insight.category}
+                            </Badge>
                           </div>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>
-                        No insights available yet. Add more transactions to get
-                        personalized insights.
-                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-6 w-6"
+                        onClick={() => toggleInsightExpansion(insight.id)}
+                      >
+                        {expandedInsights[insight.id] ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        )}
+                      </Button>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardHeader>
+                  <CardContent className="p-3">
+                    <p className="text-sm text-muted-foreground mb-3">{insight.description}</p>
 
-            {/* AI Chat */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-blue-600" />
+                    {expandedInsights[insight.id] && insight.recommendation && (
+                      <div className="mb-3 p-2 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Zap className="w-3 h-3 text-yellow-600" />
+                          <span className="text-xs font-medium text-foreground">Recommendation</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{insight.recommendation}</p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`p-1 h-6 ${feedbackGiven[insight.id] === "like" ? "bg-green-100 dark:bg-green-900" : ""}`}
+                          onClick={() => handleFeedback(insight.id, "like")}
+                        >
+                          <ThumbsUp className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`p-1 h-6 ${feedbackGiven[insight.id] === "dislike" ? "bg-red-100 dark:bg-red-900" : ""}`}
+                          onClick={() => handleFeedback(insight.id, "dislike")}
+                        >
+                          <ThumbsDown className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      {insight.actions && (
+                        <div className="flex gap-1">
+                          {insight.actions.slice(0, 2).map((action: string, index: number) => (
+                            <Button
+                              key={index}
+                              variant={index === 0 ? "default" : "outline"}
+                              size="sm"
+                              className="text-xs h-6 px-2"
+                            >
+                              {action}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Smart Suggestions Tab - Mobile optimized */}
+          <TabsContent value="suggestions" className="space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Smart Suggestions</h2>
+
+            <div className="space-y-3">
+              {smartSuggestions.map((suggestion) => (
+                <Card key={suggestion.id} className="overflow-hidden bg-card border-border">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
+                          <suggestion.icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-sm font-semibold text-foreground leading-tight">
+                            {suggestion.title}
+                          </CardTitle>
+                          <div className="flex items-center gap-1 mt-1">
+                            {getPriorityBadge(suggestion.priority)}
+                            {getEffortBadge(suggestion.effort)}
+                          </div>
+                        </div>
+                      </div>
+                      {suggestion.timeframe && (
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {suggestion.timeframe}
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <p className="text-sm text-muted-foreground mb-3">{suggestion.description}</p>
+
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      <Badge variant="outline" className="text-xs">
+                        {suggestion.category}
+                      </Badge>
+                      {suggestion.potentialSavings && (
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100 text-xs">
+                          Save ₱{suggestion.potentialSavings.toLocaleString()}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {suggestion.impact && (
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-muted-foreground">Impact Score</span>
+                          <span className="font-medium">{suggestion.impact}/100</span>
+                        </div>
+                        <Progress
+                          value={suggestion.impact}
+                          className="h-1"
+                          indicatorClassName={`${
+                            suggestion.impact >= 80
+                              ? "bg-green-500"
+                              : suggestion.impact >= 60
+                                ? "bg-blue-500"
+                                : suggestion.impact >= 40
+                                  ? "bg-yellow-500"
+                                  : "bg-red-500"
+                          }`}
+                        />
+                      </div>
+                    )}
+
+                    {suggestion.actions && (
+                      <div className="flex gap-2">
+                        <Button size="sm" className="flex-1 text-xs h-8">
+                          {suggestion.actions.primary}
+                        </Button>
+                        {suggestion.actions.secondary && (
+                          <Button variant="outline" size="sm" className="text-xs h-8">
+                            {suggestion.actions.secondary}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* AI Assistant Tab - Mobile optimized */}
+          <TabsContent value="assistant" className="space-y-4">
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-foreground text-lg">
+                  <Bot className="w-5 h-5 text-blue-600" />
                   AI Financial Assistant
                 </CardTitle>
-                <CardDescription>
-                  Ask questions about your finances and get personalized advice
+                <CardDescription className="text-sm">
+                  Ask questions about your finances and get personalized advice based on your salary data
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Chat History */}
-                  <div className=" h-[calc(100vh/2)] overflow-y-auto space-y-3 p-3 bg-gray-50 rounded-lg">
-                    {chatHistory.map((chat) => (
+              <CardContent className="p-0">
+                {/* Quick Actions - Mobile scrollable */}
+                <div className="px-3 pb-3">
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {quickActions.map((action, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs whitespace-nowrap h-7 px-2"
+                        onClick={() => handleQuickAction(action)}
+                      >
+                        {action}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chat Messages - Mobile optimized */}
+                <div className="h-96 overflow-y-auto px-3 space-y-3">
+                  {chatHistory.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
+                    >
                       <div
-                        key={chat.id}
-                        className={`flex ${
-                          chat.type === "user" ? "justify-end" : "justify-start"
+                        className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                          message.type === "user"
+                            ? "bg-blue-600 text-white"
+                            : "bg-muted text-foreground border border-border"
                         }`}
                       >
-                        <div
-                          className={`max-w-[80%] p-3 rounded-lg ${
-                            chat.type === "user"
-                              ? "bg-blue-600 text-white"
-                              : "bg-white border"
-                          }`}
-                        >
-                          {chat.type === "ai" ? (
-                            <div className="prose prose-sm max-w-none">
-                              <ReactMarkdown>{chat.message}</ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p className="text-sm">{chat.message}</p>
-                          )}
+                        {message.type === "ai" && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Bot className="w-4 h-4 text-blue-600" />
+                            <span className="text-xs font-medium">AI Assistant</span>
+                            {message.isHypothetical && (
+                              <Badge variant="outline" className="text-xs">
+                                Hypothetical
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        <div className="text-sm">
+                          <ReactMarkdown
+                            components={{
+                              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                              ul: ({ children }) => (
+                                <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>
+                              ),
+                              li: ({ children }) => <li className="text-sm">{children}</li>,
+                              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                              em: ({ children }) => <em className="italic">{children}</em>,
+                            }}
+                          >
+                            {message.message}
+                          </ReactMarkdown>
                         </div>
+                        {message.type === "ai" && (
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-1 h-6"
+                                onClick={() => handleLikeMessage(message.id)}
+                              >
+                                <Heart
+                                  className={`w-3 h-3 ${likedMessages.has(message.id) ? "fill-red-500 text-red-500" : ""}`}
+                                />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-1 h-6"
+                                onClick={() => handleBookmarkMessage(message.id)}
+                              >
+                                {bookmarkedMessages.has(message.id) ? (
+                                  <BookmarkCheck className="w-3 h-3 text-blue-600" />
+                                ) : (
+                                  <Bookmark className="w-3 h-3" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-1 h-6"
+                                onClick={() => handleCopyMessage(message.message)}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(message.timestamp).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                    {isLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-white border p-3 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    </div>
+                  ))}
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-muted rounded-2xl px-3 py-2 border border-border">
+                        <div className="flex items-center gap-2">
+                          <Bot className="w-4 h-4 text-blue-600" />
+                          <div className="flex gap-1">
+                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
                             <div
-                              className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                              className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
                               style={{ animationDelay: "0.1s" }}
                             ></div>
                             <div
-                              className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                              className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
                               style={{ animationDelay: "0.2s" }}
                             ></div>
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
 
-                  {/* Chat Input */}
+                {/* Input Area - Mobile optimized */}
+                <div className="p-3 border-t border-border">
                   <div className="flex gap-2">
                     <Textarea
-                      placeholder="Ask me about your spending, savings, or financial goals..."
+                      ref={textareaRef}
                       value={chatMessage}
                       onChange={(e) => setChatMessage(e.target.value)}
-                      onKeyPress={(e) => {
+                      placeholder="Ask about your finances, salary optimization, or 'what if' scenarios..."
+                      className="min-h-[40px] max-h-24 resize-none text-sm"
+                      onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
+                          e.preventDefault()
+                          handleSendMessage()
                         }
                       }}
-                      rows={2}
-                      className="flex-1"
                     />
                     <Button
                       onClick={handleSendMessage}
                       disabled={!chatMessage.trim() || isLoading}
-                      size="icon"
-                      className="self-end"
+                      size="sm"
+                      className="h-10 px-3"
                     >
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
-
-                  {/* Quick Questions */}
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      "How can I save more money?",
-                      "Analyze my spending patterns",
-                      "Investment suggestions",
-                      "Budget optimization tips",
-                    ].map((question) => (
-                      <Button
-                        key={question}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setChatMessage(question)}
-                        className="text-xs"
-                      >
-                        {question}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column - Suggestions */}
-          <div className="space-y-6">
-            {/* Smart Suggestions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-yellow-600" />
-                  Smart Suggestions
-                </CardTitle>
-                <CardDescription>
-                  Personalized recommendations based on your data
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {smartSuggestions.length > 0 ? (
-                    smartSuggestions.map((suggestion) => (
-                      <div
-                        key={suggestion.id}
-                        className="p-3 rounded-lg border hover:bg-muted transition-colors"
-                      >
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="p-2 bg-blue-100 rounded-full">
-                            <suggestion.icon className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium text-sm">
-                                {suggestion.title}
-                              </h4>
-                              {getPriorityBadge(suggestion.priority)}
-                            </div>
-                            <p className="text-gray-600 text-xs mb-3">
-                              {suggestion.description}
-                            </p>
-                            <div className="flex flex-wrap gap-2 mb-3">
-                              <Badge variant="outline" className="text-xs">
-                                {suggestion.category}
-                              </Badge>
-                              {getEffortBadge(suggestion.effort)}
-                              {suggestion.potentialSavings && (
-                                <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">
-                                  Save ₱
-                                  {suggestion.potentialSavings.toLocaleString()}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p className="text-sm">
-                        Add more financial data to get personalized suggestions.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Financial Health Score */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-green-600" />
-                  Financial Health Score
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center space-y-4">
-                  <div className="text-4xl font-bold text-green-600">
-                    {healthScore}/100
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {healthScore >= 80
-                      ? "Excellent"
-                      : healthScore >= 60
-                      ? "Good"
-                      : "Needs improvement"}{" "}
-                    financial health
+                  <p className="text-xs text-muted-foreground mt-2">
+                    💡 Try: "How should I allocate my ₱50,000 balance?" or "What if my salary increases by 20%?"
                   </p>
-
-                  <div className="space-y-3 text-left">
-                    <div className="flex justify-between text-sm">
-                      <span>Savings Rate</span>
-                      <span
-                        className={
-                          totalIncome > 0 &&
-                          ((totalIncome - totalExpenses) / totalIncome) * 100 >=
-                            20
-                            ? "text-green-600"
-                            : "text-yellow-600"
-                        }
-                      >
-                        {totalIncome > 0
-                          ? (
-                              ((totalIncome - totalExpenses) / totalIncome) *
-                              100
-                            ).toFixed(1) + "%"
-                          : "N/A"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Budget Adherence</span>
-                      <span className="text-yellow-600">Good</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Goal Progress</span>
-                      <span
-                        className={
-                          goals.length > 0
-                            ? "text-green-600"
-                            : "text-yellow-600"
-                        }
-                      >
-                        {goals.length > 0 ? "On Track" : "No Goals"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Spending Consistency</span>
-                      <span className="text-blue-600">Stable</span>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+        </Tabs>
 
-            {/* Monthly Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>This Month's AI Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckCircle className="w-4 h-4" />
-                    <span>
-                      {wallets.length > 0
-                        ? `Managing ${wallets.length} wallet${
-                            wallets.length > 1 ? "s" : ""
-                          } successfully`
-                        : "Add your first wallet to start tracking"}
-                    </span>
+        {/* AI Preferences Modal - Mobile optimized */}
+        {showPreferences && (
+          <Card className="fixed inset-4 z-50 bg-background border-border shadow-lg overflow-y-auto">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">AI Preferences</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowPreferences(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <CardDescription className="text-sm">Customize your AI assistant experience</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="font-medium mb-3 text-foreground">Data Access</h3>
+                <div className="space-y-3">
+                  {Object.entries(aiPreferences.dataAccess).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <Label htmlFor={key} className="text-sm capitalize">
+                        {key.replace(/([A-Z])/g, " $1").trim()}
+                      </Label>
+                      <Switch
+                        id={key}
+                        checked={value}
+                        onCheckedChange={(checked) =>
+                          setAIPreferences((prev) => ({
+                            ...prev,
+                            dataAccess: { ...prev.dataAccess, [key]: checked },
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="font-medium mb-3 text-foreground">Insight Types</h3>
+                <div className="space-y-3">
+                  {Object.entries(aiPreferences.insights).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <Label htmlFor={key} className="text-sm capitalize">
+                        {key} Insights
+                      </Label>
+                      <Switch
+                        id={key}
+                        checked={value}
+                        onCheckedChange={(checked) =>
+                          setAIPreferences((prev) => ({
+                            ...prev,
+                            insights: { ...prev.insights, [key]: checked },
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="font-medium mb-3 text-foreground">Personalization</h3>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm">Risk Tolerance</Label>
+                    <Select
+                      value={aiPreferences.personalization.riskTolerance}
+                      onValueChange={(value: "low" | "medium" | "high") =>
+                        setAIPreferences((prev) => ({
+                          ...prev,
+                          personalization: { ...prev.personalization, riskTolerance: value },
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Conservative</SelectItem>
+                        <SelectItem value="medium">Moderate</SelectItem>
+                        <SelectItem value="high">Aggressive</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex items-center gap-2 text-blue-600">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>
-                      {totalIncome > 0
-                        ? `Total income: ₱${totalIncome.toLocaleString()}`
-                        : "Add income transactions to track earnings"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-yellow-600">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>
-                      {totalExpenses > 0
-                        ? `Total expenses: ₱${totalExpenses.toLocaleString()}`
-                        : "Add expense transactions to monitor spending"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Target className="w-4 h-4" />
-                    <span>
-                      {goals.length > 0
-                        ? `${goals.length} financial goal${
-                            goals.length > 1 ? "s" : ""
-                          } set`
-                        : "Create your first financial goal"}
-                    </span>
+                  <div>
+                    <Label className="text-sm">Savings Target (%)</Label>
+                    <div className="mt-1">
+                      <input
+                        type="range"
+                        min="5"
+                        max="50"
+                        value={aiPreferences.personalization.savingsTarget}
+                        onChange={(e) =>
+                          setAIPreferences((prev) => ({
+                            ...prev,
+                            personalization: { ...prev.personalization, savingsTarget: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>5%</span>
+                        <span className="font-medium">{aiPreferences.personalization.savingsTarget}%</span>
+                        <span>50%</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
-  );
+  )
 }

@@ -9,6 +9,7 @@ export function useTransactions() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [salaryTransactions, setSalaryTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -37,6 +38,36 @@ export function useTransactions() {
 
       if (error) throw error
       setTransactions(data || [])
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch transactions",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchSalaryTransactions = async () => {
+    try {
+      if (!supabase || !user) {
+        setSalaryTransactions([])
+        setLoading(false)
+        return
+      }
+      const { data, error } = await supabase
+        .from("transactions")
+        .select(`
+        *,
+        wallets(name),
+        categories(name, color)
+      `)
+        .eq("user_id", user?.id)
+        .order("date", { ascending: false })
+
+      if (error) throw error
+      setSalaryTransactions(data)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -182,10 +213,12 @@ export function useTransactions() {
 
   return {
     transactions,
+    salaryTransactions,
     loading,
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    refetchSalary: fetchSalaryTransactions,
     refetch: fetchTransactions,
   }
 }
