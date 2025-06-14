@@ -48,6 +48,7 @@ export default function AIInsightsPage() {
   const { transactions, loading: transactionsLoading } = useTransactions();
   const { wallets, loading: walletsLoading } = useWallets();
   const { goals, loading: goalsLoading } = useGoals();
+  console.log("Transactions:", transactions);
 
   const [chatMessage, setChatMessage] = useState("");
   const [chatHistory, setChatHistory] = useState([
@@ -679,7 +680,7 @@ export default function AIInsightsPage() {
                     insights.map((insight) => (
                       <div
                         key={insight.id}
-                        className="p-4 rounded-lg border hover:bg-gray-50 transition-colors"
+                        className="p-4 rounded-lg border hover:bg-muted transition-colors"
                       >
                         <div className="flex items-start gap-3">
                           <div
